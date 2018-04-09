@@ -81,16 +81,15 @@ def main():
     thetaz = math.pi/8
     tx = -0.5
     ty = -0.5
-    # How can we get rid of this stupid tz... (Distance from camera)
-    tz = 6
+    tz = 5
     k1 = -0.2
     k2 = -0.01
     k3 = 0.001
     p1 = 0.01
     p2 = 0.001
 
-    noise = 1
-    miss_classified = 3
+    noise = 0
+    miss_classified = 2
 
     cm = CameraModel(resolution, [fx, fy], [cx, cy])
     cm.add_distortion([k1, k2, k3], [p1, p2])
