@@ -80,20 +80,38 @@ class CameraModelEstimator:
             self._x0[7] = tvec[0][0]
             self._x0[8] = tvec[1][0]
             self._x0[9] = tvec[2][0]
-            # Throwaway points that could be missmatches
-            self._points2d_reduced = self._points2d[valid_points]
-            self._points3d_reduced = self._points3d[valid_points]
+            # Throwaway points that are probably missmatches
+            #self._points2d_reduced = self._points2d[valid_points]
+            #self._points3d_reduced = self._points3d[valid_points]
 
+        x0 = [0]*15
+        min_res = None
+        for i in range(0, 500):
+            x0[0] = np.random.rand()*2000+10
+            x0[1] = np.random.rand()*2000+10
+            x0[2] = self._resolution[0]/2
+            x0[3] = self._resolution[0]/2
+            x0[4] = 2*np.random.rand()*math.pi
+            x0[5] = 2*np.random.rand()*math.pi
+            x0[6] = 2*np.random.rand()*math.pi
+            x0[7] = np.random.rand()*10-5
+            x0[8] = np.random.rand()*10-5
+            x0[9] = np.random.rand()*10-5
+            x0[10] = np.random.rand()*5
+            x0[11] = np.random.rand()*3
+            x0[12] = np.random.rand()*5
+            x0[13] = np.random.rand()
+            x0[14] = np.random.rand()
 
-        # Use least squares minimization with levenberg-marquardt algorithm
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        return opt.least_squares(self._loss_lm, self._x0,
-                                 method = 'lm')
+            res = opt.least_squares(self._loss_lm, x0,
+                                    method = 'lm', max_nfev = 200)
+            if min_res is None or res.optimality <= min_res.optimality:
+                min_res = res
 
+        print("Done best result: {}".format(min_res.optimality))
 
-#        return opt.minimize(self._loss, self._x0,
-#                            method = 'BFGS',
-#                            options={'eps': scale})
-
-
+        x0 = min_res.x
+        res = opt.least_squares(self._loss_lm, x0,
+                                method = 'lm')
+        return res
 

@@ -59,6 +59,7 @@ def do_single(resolution, points2d, points3d):
     cme = CameraModelEstimator(resolution, points2d, points3d)
     x0 = create_x0(resolution, 0)
     cme.set_x0(x0)
+    # return cme.estimate([0.1, 0.01, 0.001, 0.01, 0.001])
     return cme.estimate(True)
 
 
@@ -68,28 +69,27 @@ def do_single(resolution, points2d, points3d):
 def main():
     print("Start program")
     mod = PointModel2()
-    mod.create_points(8)
+    mod.create_points(100)
 
-    resolution = [640, 800]
+    resolution = [800, 800]
 
-    fx = 1150
-    fy = 1100
+    fx = 300
+    fy = 300
     cx = resolution[0] / 2
     cy = resolution[1] / 2
-    thetax = -math.pi/10
+    thetax = 0
     thetay = math.pi/10
-    thetaz = math.pi/8
+    thetaz = 0
     tx = -0.5
     ty = -0.5
-    tz = 5
+    tz = 0.8
     k1 = -0.2
-    k2 = -0.01
-    k3 = 0.001
-    p1 = 0.01
-    p2 = 0.001
-
+    k2 = 0.01
+    k3 = 0.01
+    p1 = -0.01
+    p2 = 0
     noise = 0
-    miss_classified = 2
+    miss_classified = 0
 
     cm = CameraModel(resolution, [fx, fy], [cx, cy])
     cm.add_distortion([k1, k2, k3], [p1, p2])
@@ -99,6 +99,7 @@ def main():
 
 
     plt.imshow(image)
+    plt.show()
 
     points2d = cm.points2d
     points3d = mod.points
@@ -121,11 +122,10 @@ def main():
     plt.figure()
     plt.imshow(image2)
 
-#    res = do_parallel(resolution, points2d, points3d)
     res = do_single(resolution, points2d, points3d)
 
-
     should = [fx, fy, cx, cy, thetax, thetay, thetaz, tx, ty, tz, k1, k2, k3, p1, p2]
+    print(res)
     print("res: {}\nis:       {}\nshould:   {}".format(res, np.round(res.x, 2).tolist(), should))
 
     fx_est = res.x[0]

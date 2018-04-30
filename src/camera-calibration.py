@@ -7,6 +7,9 @@ Description: This is a proof of concept for point cloud base camera calibration
 """
 import math
 import sys
+import io
+import json
+
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
@@ -16,7 +19,7 @@ import multiprocessing as mp
 from model import Model
 from orbdescriptors import OrbDescriptors
 from cameramodel import CameraModel
-from cameramodelestimator import CameraModelEstimator
+from cameramodelestimator_rand import CameraModelEstimator
 
 def get_multiplier(n):
     if n == 0:
@@ -29,34 +32,16 @@ def create_x0(resolution, i):
     m_y = get_multiplier((i>>1)&0x1)
     m_z = get_multiplier((i>>2)&0x1)
 
-    x0 = [200, 200,
-        resolution[0]/2, resolution[1]/2,
+    x0 = [1333, 1339,
+        629, 362,
         m_x*math.pi/2, m_y*math.pi/2, m_z*math.pi/2,
-        -0.5, -0.5, 1,
-        100, 10, 1,
-        10 , 1]
+        0, 0, 0,
+        0.3, -2, 6.6,
+        0 , 0]
     return x0
 
 def estimate(cme):
     return cme.estimate()
-
-def do_parallel(resolution, points2d, points3d):
-    cme_list = []
-    for i in range(0,7):
-        x0 = create_x0(resolution, i)
-        cme = CameraModelEstimator(resolution, points2d, points3d)
-        cme.set_x0(x0)
-        cme_list.append(cme)
-
-    pool = mp.Pool()
-    res_list = pool.map(estimate, cme_list)
-    res = res_list[0]
-    # search min, update with real min
-    for r in res_list:
-        if r.fun < res.fun:
-            res = r
-
-    return res
 
 def do_single(resolution, points2d, points3d):
     cme = CameraModelEstimator(resolution, points2d, points3d)
@@ -82,6 +67,32 @@ def show_res(res):
     print("p2 {}".format(res.x[14]))
 
 
+def plot_matches(image, image_descriptors, image_kps, pointcloud_matches,
+                 keyframefile, keyframe_infos):
+
+    keyframe = cv2.imread(keyframefile)
+
+    with io.open(keyframe_infos, 'r') as f:
+        keyframe_infos = json.JSONDecoder().decode(f.read())
+
+    indexes = pointcloud_matches[:,0].astype(int)
+    image_descriptors_subset = image_descriptors[indexes]
+    image_kps_subset = np.asarray(image_kps)[indexes]
+
+    keyframe_descriptors = np.asarray(keyframe_infos['descriptors'], dtype=np.uint8)
+    keyframe_positions = np.asarray(keyframe_infos['position'])
+    kf_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    kf_matches = kf_matcher.match(keyframe_descriptors, image_descriptors_subset)
+
+    kf_kps = np.asarray(list(map(lambda point: cv2.KeyPoint(point[0], point[1], 10),
+                                 keyframe_positions)))
+
+    sorted_matches = sorted(kf_matches, key=lambda match: match.distance)
+    out_image = image.copy()
+    out_image = cv2.drawMatches(keyframe, kf_kps, image, image_kps_subset, sorted_matches, out_image)
+    plt.imshow(out_image)
+    plt.show()
+
 
 # Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
 # for zooming. Idea: If we take two pictures, we can probably fix tx to the
@@ -91,30 +102,48 @@ def main():
 
     pointcloudfile = sys.argv[1]
     imagefile = sys.argv[2]
-
+    keyframefile = None
+    keyframe_infos = None
+    if len(sys.argv) > 3:
+        keyframefile = sys.argv[3]
+        keyframe_infos = sys.argv[4]
     # Workaround so that orb compute doesn't crash
     cv2.ocl.setUseOpenCL(False)
 
     pointcloud = Model(pointcloudfile)
     image = cv2.imread(imagefile, 0)
 
+    print("Extract descriptors")
     descriptors = OrbDescriptors(image)
     descriptors.extract()
 
-    print("Extract descriptors")
-    kps, matches = descriptors.match_descriptors(pointcloud.descriptors, 150)
-    points2d_tmp, points3d = descriptors.get_points(pointcloud.points3d)
-    points2d = np.ones((len(points2d_tmp), 3))
-    points2d[:,0:2] = points2d_tmp
+    print("Match keypoints")
+    matches = descriptors.match_descriptors(pointcloud.descriptors)
+    matches = np.asarray(matches)
 
-#    image2 = cv2.drawKeypoints(image, kps, None)
-#    plt.imshow(image2)
-#    plt.show()
+    if keyframefile:
+        plot_matches(image, descriptors._descriptors, descriptors.get_key_points(),
+                     matches, keyframefile, keyframe_infos)
+
+
+    kps =  descriptors.get_key_points()
+    kps = np.asarray(kps)
+
+    kp_indexes = matches[:, 0].astype(int)
+    matched_kps = kps[kp_indexes]
+    points2d = np.array(list(map(lambda kp: np.asarray(kp.pt), matched_kps)))
+
+    kp_image = image.copy()
+    kp_image = cv2.drawKeypoints(image, matched_kps, kp_image)
+    plt.imshow(kp_image)
+    plt.show()
+
+    p3d_indexes = matches[:,1].astype(int)
+    points3d = pointcloud.points3d[p3d_indexes,:]
 
     resolution = [image.shape[1], image.shape[0]]
-#    res = do_parallel(resolution, points2d, points3d)
     print("Optimize camera model")
-    valid_points, res = do_single(resolution, points2d, points3d)
+    res = do_single(resolution, points2d, points3d)
 
     #print("res: {}\nis:       {}".format(res, np.round(res.x, 2).tolist()))
     show_res(res)
@@ -135,25 +164,8 @@ def main():
     p1_est = res.x[13]
     p2_est = res.x[14]
 
-    valid_kps = np.asarray(kps)[valid_points]
-    image2 = cv2.drawKeypoints(image, valid_kps, None)
+    image2 = cv2.drawKeypoints(image, matched_kps, None)
     image2 = cv2.undistort(image2, np.asarray([[fx_est, 0, cx_est],[0, fy_est, cy_est], [0, 0, 1]]), np.asarray([k1_est, k2_est, p1_est, p2_est]))
-
-#    cm_est = CameraModel(resolution, [fx_est, fy_est], [cx_est, cy_est])
-#    cm_est.add_distortion([k1_est, k2_est, k3_est], [p1_est, p2_est])
-#    cm_est.create_extrinsic([thetax_est, thetay_est, thetaz_est], [tx_est, ty_est, tz_est])
-#    cm_est.update_point_cloud(mod.points)
-#    image_est = cm_est.get_image()
-
-
-#    print("distance: {}".format(np.round((np.array(res.x)-np.array(should)), 2).tolist()))
-#    print("tot-distance: {}".format(np.linalg.norm(np.array(res.x)-np.array(should))))
-#
-#    diff_img = image_est - image
-#
-#    plt.figure()
-#    plt.imshow(diff_img)
-#    plt.show()
 
     plt.imshow(image2)
     plt.show()

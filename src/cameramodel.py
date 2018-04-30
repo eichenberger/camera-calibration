@@ -17,6 +17,7 @@ class CameraModel:
         self._f = f
         self._c = c
         self._update_intrinsic()
+        self._transformation_mat = None
 
     @staticmethod
     def _rot_mat_x(angle):
@@ -87,29 +88,19 @@ class CameraModel:
 
         return point
 
-
     def update_point_cloud(self, point_cloud):
         """ Get an image of a point cloud """
-        log.debug("Intrinsic:")
-        log.debug(self._intrinsic_mat)
-        log.debug("Extrinsic:")
-        log.debug(self._extrinsic_mat)
-        cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
-        log.debug("C:")
-        log.debug(cam_mat)
-        self.points2d = np.zeros((len(point_cloud), 3))
-        for i, point in enumerate(point_cloud):
-            wp = np.ones((4))
-            wp[0:3] = point[0:3]
-            log.debug("WP:")
-            log.debug(wp)
-            impoint = np.matmul(cam_mat, wp)
-            impoint = np.asarray(impoint)[0]
-            if impoint[2] > 0:
-                impoint = impoint/impoint[2] # normalize so that z is 1
-                log.debug("Impoint:")
-                log.debug(impoint)
-                self.points2d[i, :] = self._distortion(impoint)
+        if self._transformation_mat is not None:
+            cam_mat = self._transformation_mat
+        else:
+            cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
+        n = point_cloud.shape[0]
+        points3d = np.concatenate((point_cloud, np.ones((n,1))), axis=1)
+        points2d = np.asarray(np.matmul(cam_mat, np.transpose(points3d)))
+        # normalize third dimension to 1
+        points2d = np.mat(points2d.transpose())
+        points2d = np.asarray(points2d/points2d[:, 2])
+        self.points2d = np.array(list(map(lambda point: self._distortion(point), points2d)))
 
     def get_image(self):
         image = np.zeros((self._resolution[0], self._resolution[1]))
@@ -128,5 +119,4 @@ class CameraModel:
         """ Add distortion to the camera model """
         self._k = k
         self._p = p
-
 

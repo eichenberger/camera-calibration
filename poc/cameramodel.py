@@ -18,6 +18,8 @@ class CameraModel:
         self._c = c
         self._update_intrinsic()
 
+        self._transformation_mat = None
+
     @staticmethod
     def _rot_mat_x(angle):
         return np.mat([[1, 0, 0],
@@ -65,11 +67,14 @@ class CameraModel:
 
         # Get point coordinates from center of image
         point_center = point[0:2] - self._c
-        u = point_center[0] / self._f[0]
-        v = point_center[1] / self._f[1]
+        x = point_center[0] / self._f[0]
+        y = point_center[1] / self._f[1]
+        u = x
+        v = y
 
         # We need the radius of the point from the principal component
-        r = sqrt(u**2 + v**2)
+
+        r = sqrt(x**2 + y**2)
 
         # Radial distortion
         newp[0] = u * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
@@ -80,36 +85,36 @@ class CameraModel:
         newp[1] = newp[1] + 2*self._p[1]*u*v + self._p[0]*(r**2+2*v**2)
 
         # Calculate pixels again
-        newp[0] = newp[0] * self._f[0]
-        newp[1] = newp[1] * self._f[1]
+        newp[0] = self._f[0]*newp[0]
+        newp[1] = self._f[1]*newp[1]
 
         point = point + newp
 
         return point
 
+    def set_transfomration_mat(self, transformation_mat):
+        self._transformation_mat = transformation_mat
+
 
     def update_point_cloud(self, point_cloud):
         """ Get an image of a point cloud """
-        log.debug("Intrinsic:")
-        log.debug(self._intrinsic_mat)
-        log.debug("Extrinsic:")
-        log.debug(self._extrinsic_mat)
-        cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
-        log.debug("C:")
-        log.debug(cam_mat)
-        self.points2d = np.zeros((len(point_cloud), 3))
-        for i, point in enumerate(point_cloud):
-            wp = np.ones((4))
-            wp[0:3] = point[0:3]
-            log.debug("WP:")
-            log.debug(wp)
-            impoint = np.matmul(cam_mat, wp)
-            impoint = np.asarray(impoint)[0]
-            if impoint[2] > 0:
-                impoint = impoint/impoint[2] # normalize so that z is 1
-                log.debug("Impoint:")
-                log.debug(impoint)
-                self.points2d[i, :] = self._distortion(impoint)
+        if self._transformation_mat is not None:
+            cam_mat = self._transformation_mat
+        else:
+            log.debug("Intrinsic:")
+            log.debug(self._intrinsic_mat)
+            log.debug("Extrinsic:")
+            log.debug(self._extrinsic_mat)
+            cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
+            log.debug("C:")
+            log.debug(cam_mat)
+        n = point_cloud.shape[0]
+        points3d = np.concatenate((point_cloud, np.ones((n,1))), axis=1)
+        points2d = np.asarray(np.matmul(cam_mat, np.transpose(points3d)))
+        # normalize third dimension to 1
+        points2d = np.mat(points2d.transpose())
+        points2d = np.asarray(points2d/points2d[:, 2])
+        self.points2d = np.array(list(map(lambda point: self._distortion(point), points2d)))
 
     def get_image(self):
         image = np.zeros((self._resolution[0], self._resolution[1]))
