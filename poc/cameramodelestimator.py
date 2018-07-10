@@ -239,9 +239,5 @@ class CameraModelEstimator:
                                  method = 'lm')
 
 
-#        return opt.minimize(self._loss, self._x0,
-#                            method = 'BFGS',
-#                            options={'eps': scale})
-
 
 

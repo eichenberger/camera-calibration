@@ -56,6 +56,9 @@ def main():
     camera_matrix = [[463.990, 0, 320],[0, 463.889, 240], [0, 0, 1]]
     camera_matrix_inv = np.linalg.inv(camera_matrix)
 
+    cv2.namedWindow("image", cv2.WINDOW_KEEPRATIO)
+    cv2.resizeWindow("image", 1920, 1080)
+    plt.ion()
     # Streaming loop
     try:
         while True:
@@ -77,7 +80,7 @@ def main():
             depth_image = np.asanyarray(aligned_depth_frame.get_data())
             color_image = np.asanyarray(color_frame.get_data())
             gray_image = cv2.cvtColor(color_image, cv2.COLOR_RGB2GRAY)
-            orb = cv2.ORB_create(200, 1.4, 8, fastThreshold=20)
+            orb = cv2.ORB_create(500, 1.4, 8, fastThreshold=20)
             kp = orb.detect(gray_image, None)
             kps, image_descriptors = orb.compute(gray_image, kp)
 
@@ -101,14 +104,15 @@ def main():
             # Render images
     #        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
     #        images = np.hstack((color_image, depth_colormap))
-            plt.imshow(test_image)
-            plt.show()
+            cv2.imshow("image", test_image)
+            cv2.waitKey(25)
 
             save = input("Save [y/n]:")
             if save == 'y':
                 with io.open(outfile, 'w') as f:
                     f.write(json.JSONEncoder().encode(keypoints))
                 cv2.imwrite(outimage, color_image)
+                cv2.imwrite("depth_" + outimage, depth_image)
 
     finally:
         pipeline.stop()

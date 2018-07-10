@@ -69,20 +69,17 @@ class CameraModel:
         point_center = point[0:2] - self._c
         x = point_center[0] / self._f[0]
         y = point_center[1] / self._f[1]
-        u = x
-        v = y
 
         # We need the radius of the point from the principal component
-
         r = sqrt(x**2 + y**2)
 
         # Radial distortion
-        newp[0] = u * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
-        newp[1] = v * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
+        newp[0] = x * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
+        newp[1] = y * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
 
         # Tangential distortion
-        newp[0] = newp[0] + 2*self._p[0]*u*v + self._p[1]*(r**2+2*u**2)
-        newp[1] = newp[1] + 2*self._p[1]*u*v + self._p[0]*(r**2+2*v**2)
+        newp[0] = newp[0] + 2*self._p[0]*x*y + self._p[1]*(r**2+2*x**2)
+        newp[1] = newp[1] + 2*self._p[1]*x*y + self._p[0]*(r**2+2*y**2)
 
         # Calculate pixels again
         newp[0] = self._f[0]*newp[0]
@@ -108,6 +105,7 @@ class CameraModel:
             cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
             log.debug("C:")
             log.debug(cam_mat)
+
         n = point_cloud.shape[0]
         points3d = np.concatenate((point_cloud, np.ones((n,1))), axis=1)
         points2d = np.asarray(np.matmul(cam_mat, np.transpose(points3d)))

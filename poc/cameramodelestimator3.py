@@ -19,31 +19,11 @@ class CameraModelEstimator:
         self._max_iter = None
 
     def _loss_lm(self, x):
-        if self._reduce_dist_param:
-            k1 = x[10]
-            k2 = x[11]
-            k3 = x[12]
-            p1 = x[13]
-            p2 = x[14]
-        else:
-            fx = x[0]
-            fy = x[1]
-            cx = x[2]
-            cy = x[3]
-            thetax = x[4]
-            thetay = x[5]
-            thetaz = x[6]
-            tx = x[7]
-            ty = x[8]
-            tz = x[9]
-            k1 = x[10]
-            k2 = x[11]
-            k3 = x[12]
-            p1 = x[13]
-            p2 = x[14]
-            self._cm.set_c([cx, cy])
-            self._cm.set_f([fx, fy])
-            self._cm.create_extrinsic([thetax, thetay, thetaz], [tx, ty, tz])
+        k1 = x[0]
+        k2 = x[1]
+        k3 = x[2]
+        p1 = x[3]
+        p2 = x[4]
 
         self._cm.add_distortion([k1, k2, k3], [p1, p2])
 
@@ -156,7 +136,7 @@ class CameraModelEstimator:
         # return the pose, the translation and all valid points
         return res[1], res[2], res[3].transpose()[0]
 
-    def estimate(self, reduce_dist_param=False):
+    def estimate(self):
         self._points2d_inliers = self._points2d
         self._points3d_inliers = self._points3d
 
@@ -181,18 +161,15 @@ class CameraModelEstimator:
         tz = self._extrinsic[2,3]
 
         # Create an array from the intrinsic, extrinsic and k0-k2, p0-p1
-        dist_params = [0, 0, 0, 0, 0]
-        self._reduce_dist_param = reduce_dist_param
-
-        x0 = np.concatenate(([fx, fy, cx, cy],
-                             [rot_x, rot_y, rot_z, tx, ty, tz],
-                             dist_params))
+        x0 = [0, 0, 0, 0, 0]
 
         self._cm.set_c([cx, cy])
         self._cm.set_f([fx, fy])
         self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
         # Use least squares minimization with levenberg-marquardt algorithm
-        return opt.least_squares(self._loss_lm, x0,
+        res = opt.least_squares(self._loss_lm, x0,
                                  method = 'lm',
                                  max_nfev = self._max_iter)
-
+        res.x = [fx, fy, cx, cy, rot_x, rot_y, rot_z, tx, ty, tz,
+                 res.x[0], res.x[1], res.x[2], res.x[3], res.x[4]]
+        return res

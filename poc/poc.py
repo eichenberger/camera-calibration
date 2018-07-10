@@ -13,7 +13,7 @@ import multiprocessing as mp
 #from pointmodel import PointModel
 from pointmodel2 import PointModel2
 from cameramodel import CameraModel
-from cameramodelestimator import CameraModelEstimator
+from cameramodelestimator4 import CameraModelEstimator
 
 def get_multiplier(n):
     if n == 0:
@@ -58,9 +58,10 @@ def do_parallel(resolution, points2d, points3d):
 def do_single(resolution, points2d, points3d):
     cme = CameraModelEstimator(resolution, points2d, points3d)
     x0 = create_x0(resolution, 0)
-    cme.set_x0(x0)
+    # cme.set_x0(x0)
     # return cme.estimate([0.1, 0.01, 0.001, 0.01, 0.001])
-    return cme.estimate(True)
+    #return cme.estimate(True)
+    return cme.estimate()
 
 
 # Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
@@ -69,26 +70,27 @@ def do_single(resolution, points2d, points3d):
 def main():
     print("Start program")
     mod = PointModel2()
-    mod.create_points(100)
+    mod.create_points(20)
 
     resolution = [800, 800]
 
-    fx = 300
-    fy = 300
+    fx = 1000
+    fy = 1000
     cx = resolution[0] / 2
     cy = resolution[1] / 2
-    thetax = 0
-    thetay = math.pi/10
-    thetaz = 0
+    thetax = math.pi/10
+    thetay = -math.pi/10
+    thetaz = -math.pi/10
     tx = -0.5
     ty = -0.5
-    tz = 0.8
-    k1 = -0.2
-    k2 = 0.01
+    tz = 3
+    k1 = 0.1
+    k2 = -0.2
     k3 = 0.01
-    p1 = -0.01
-    p2 = 0
+    p1 = 0.1
+    p2 = 0.0
     noise = 0
+    noise_z = 0 #0.002
     miss_classified = 0
 
     cm = CameraModel(resolution, [fx, fy], [cx, cy])
@@ -102,8 +104,11 @@ def main():
     plt.show()
 
     points2d = cm.points2d
-    points3d = mod.points
+    points3d = np.ones((len(mod.points),4))
+    points3d[:,0:3] = mod.points
 
+    n = points3d.shape[0]
+    points3d[:,2] = points3d[:,2] + np.random.randn(n)*noise_z
     # Add noise
     points2d[:,0:2] = points2d[:,0:2] + np.random.randn(len(points2d), 2)*noise
 
@@ -123,11 +128,6 @@ def main():
     plt.imshow(image2)
 
     res = do_single(resolution, points2d, points3d)
-
-    should = [fx, fy, cx, cy, thetax, thetay, thetaz, tx, ty, tz, k1, k2, k3, p1, p2]
-    print(res)
-    print("res: {}\nis:       {}\nshould:   {}".format(res, np.round(res.x, 2).tolist(), should))
-
     fx_est = res.x[0]
     fy_est = res.x[1]
     cx_est = res.x[2]
@@ -137,13 +137,29 @@ def main():
     thetaz_est = res.x[6]
     tx_est = res.x[7]
     ty_est = res.x[8]
-    # How can we get rid of this stupid tz... (Distance from camera)
-    tz_est = res.x[9]
-    k1_est = res.x[10]
-    k2_est = res.x[11]
-    k3_est = res.x[12]
-    p1_est = res.x[13]
-    p2_est = res.x[14]
+    if len(res.x) == 13:
+        tz_est = res.x[9]
+        k1_est = res.x[10]
+        k2_est = res.x[11]
+        k3_est = 0
+        p1_est = res.x[12]
+        p2_est = 0
+    else:
+        tz_est = res.x[9]
+        k1_est = res.x[10]
+        k2_est = res.x[11]
+        k3_est = res.x[12]
+        p1_est = res.x[13]
+        p2_est = res.x[14]
+
+
+
+    should = [fx, fy, cx, cy, thetax, thetay, thetaz, tx, ty, tz, k1, k2, k3, p1, p2]
+    res_is = [fx_est, fy_est, cx_est, cy_est, thetax_est, thetay_est, thetaz_est, tx_est, ty_est, tz_est, k1_est, k2_est, k3_est, p1_est, p2_est]
+    print("reprojection error: {}\nis: {}\nshould: {}".format(res.optimality,
+                                                              np.round(res_is, 2).tolist(),
+                                                              should))
+
 
     cm_est = CameraModel(resolution, [fx_est, fy_est], [cx_est, cy_est])
     cm_est.add_distortion([k1_est, k2_est, k3_est], [p1_est, p2_est])
@@ -152,8 +168,9 @@ def main():
     image_est = cm_est.get_image()
 
 
-    print("distance: {}".format(np.round((np.array(res.x)-np.array(should)), 2).tolist()))
-    print("tot-distance: {}".format(np.linalg.norm(np.array(res.x)-np.array(should))))
+    dist = np.array(res_is)-np.array(should)
+    print("distance: {}".format(np.round(dist, 2).tolist()))
+    print("tot-distance: {}".format(np.linalg.norm(dist)))
 
     diff_img = image_est - image
 

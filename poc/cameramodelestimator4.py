@@ -18,32 +18,12 @@ class CameraModelEstimator:
         self._cm = CameraModel(resolution)
         self._max_iter = None
 
-    def _loss_lm(self, x):
-        if self._reduce_dist_param:
-            k1 = x[10]
-            k2 = x[11]
-            k3 = x[12]
-            p1 = x[13]
-            p2 = x[14]
-        else:
-            fx = x[0]
-            fy = x[1]
-            cx = x[2]
-            cy = x[3]
-            thetax = x[4]
-            thetay = x[5]
-            thetaz = x[6]
-            tx = x[7]
-            ty = x[8]
-            tz = x[9]
-            k1 = x[10]
-            k2 = x[11]
-            k3 = x[12]
-            p1 = x[13]
-            p2 = x[14]
-            self._cm.set_c([cx, cy])
-            self._cm.set_f([fx, fy])
-            self._cm.create_extrinsic([thetax, thetay, thetaz], [tx, ty, tz])
+    def _loss_dist(self, x):
+        k1 = x[0]
+        k2 = x[1]
+        k3 = x[2]
+        p1 = x[3]
+        p2 = x[4]
 
         self._cm.add_distortion([k1, k2, k3], [p1, p2])
 
@@ -53,6 +33,35 @@ class CameraModelEstimator:
         dists = points2d_est - self._points2d_inliers
 
         return dists.flatten()
+
+    def _loss_full(self, x):
+        fx = x[0]
+        fy = x[1]
+        cx = x[2]
+        cy = x[3]
+        thetax = x[4]
+        thetay = x[5]
+        thetaz = x[6]
+        tx = x[7]
+        ty = x[8]
+        tz = x[9]
+        k1 = x[10]
+        k2 = x[11]
+        k3 = x[12]
+        p1 = x[13]
+        p2 = x[14]
+        self._cm.set_c([cx, cy])
+        self._cm.set_f([fx, fy])
+        self._cm.create_extrinsic([thetax, thetay, thetaz], [tx, ty, tz])
+        self._cm.add_distortion([k1, k2, k3], [p1, p2])
+
+        self._cm.update_point_cloud(self._points3d_inliers[:,0:3])
+        points2d_est = self._cm.points2d
+
+        dists = points2d_est - self._points2d_inliers
+
+        return dists.flatten()
+
 
     def _rq(self, M):
         # User algorithm for RQ from QR decomposition from
@@ -104,6 +113,8 @@ class CameraModelEstimator:
         transformation_mat = None
         best_reprojection_error = None
         inliers = None
+        points2d_est = None
+        # Try to find the best match within n tries
         for i in range(0, 1000):
             sel3d, sel2d = self._select_points(points3d, points2d, 10)
             # We can't do a direct linear least square, we first need to create
@@ -135,6 +146,7 @@ class CameraModelEstimator:
                 max_matches = matches
                 best_reprojection_error = reprojection_error
                 self._inliers = inliers
+                points2d_est = points2d_transformed
         print("i: " + str(i))
         print("Max matches: " + str(max_matches))
         print("Match percentage: " + str((max_matches/len(points2d))*100))
@@ -143,25 +155,37 @@ class CameraModelEstimator:
         # Make rq matrix decomposition, transformation is not taken into account
         print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, extrinsic))
 
-    def _guess_pose(self):
-        camera_matrix = np.array([[200.0, 0.0, self._resolution[0]/2],
-                         [0.0, 200.0, self._resolution[1]/2],
-                         [0.0, 0.0, 1.0]])
-        dist_coeff = np.array([])
+        return points2d_est
 
-        points3d = np.array([self._points3d])
-        points2d = np.array([self._points2d[:,0:2]])
+    def _guess_distortion_lin(self, points2d_are, points2d_est, f, c):
+        # uv = [u, v]
+        uv = np.asarray((points2d_est[:,0:2]) - c)
+        xy = (uv)/f
+        radius = np.linalg.norm(xy, axis=(1))
+        x = xy[:,0]
+        y = xy[:,1]
+        # Because uv[:,0] is a onedimensional array we need to transpose M1 so
+        # that we have column vectors
+        M1 = np.transpose(np.array([x*radius**2, x*radius**4, x*radius**6,
+                                    2*x*y, radius**2+2*x**2]))
+        M2 = np.transpose(np.array([y*radius**2, y*radius**4, y*radius**6,
+                                    radius**2+2*y**2, 2*y*x]))
+        M = np.zeros((M1.shape[0]*2,M1.shape[1]))
+        M[0::2] = M1*f[0]
+        M[1::2] = M2*f[1]
+        delta = points2d_are[:,0:2] - points2d_est[:,0:2]
+        delta = delta.reshape(delta.shape[0]*2, 1)
+        distortion = np.linalg.lstsq(M, delta, rcond=-1)
+        print("Distortion: {}".format(distortion[0]))
+        return distortion
 
-        res = cv2.solvePnPRansac(points3d, points2d, camera_matrix, dist_coeff)
-        # return the pose, the translation and all valid points
-        return res[1], res[2], res[3].transpose()[0]
 
-    def estimate(self, reduce_dist_param=False):
+    def estimate(self):
         self._points2d_inliers = self._points2d
         self._points3d_inliers = self._points3d
 
         # Guess initial intrinsic and extrinsic mat with linear least squares
-        self._guess_transformation(self._points3d, self._points2d)
+        points2d_est = self._guess_transformation(self._points3d, self._points2d)
         self._points2d_inliers = self._points2d[self._inliers]
         self._points3d_inliers = self._points3d[self._inliers]
 
@@ -172,6 +196,13 @@ class CameraModelEstimator:
         fy = self._intrinsic[1,1]
         cx = self._intrinsic[0,2]
         cy = self._intrinsic[1,2]
+
+        points2d_est_inliers = points2d_est[self._inliers]
+        # Does not work
+#        self._guess_distortion_lin(self._points2d,
+#                                   points2d_est,
+#                                   [fx, fy], [cx, cy])
+#
         # Calculate angles
         rot_x = np.arctan2(self._extrinsic[1,2], self._extrinsic[2,2])
         rot_y = np.arctan2(self._extrinsic[0,2], np.sqrt(self._extrinsic[1,2]**2 + self._extrinsic[2,2]**2))
@@ -181,18 +212,19 @@ class CameraModelEstimator:
         tz = self._extrinsic[2,3]
 
         # Create an array from the intrinsic, extrinsic and k0-k2, p0-p1
-        dist_params = [0, 0, 0, 0, 0]
-        self._reduce_dist_param = reduce_dist_param
-
-        x0 = np.concatenate(([fx, fy, cx, cy],
-                             [rot_x, rot_y, rot_z, tx, ty, tz],
-                             dist_params))
+        x0 = [0, 0, 0, 0, 0]
 
         self._cm.set_c([cx, cy])
         self._cm.set_f([fx, fy])
         self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
         # Use least squares minimization with levenberg-marquardt algorithm
-        return opt.least_squares(self._loss_lm, x0,
+        res = opt.least_squares(self._loss_dist, x0,
                                  method = 'lm',
                                  max_nfev = self._max_iter)
+        x0 = [fx, fy, cx, cy, rot_x, rot_y, rot_z, tx, ty, tz,
+                 res.x[0], res.x[1], res.x[2], res.x[3], res.x[4]]
 
+        res = opt.least_squares(self._loss_full, x0,
+                                 method = 'lm',
+                                 max_nfev = self._max_iter)
+        return res

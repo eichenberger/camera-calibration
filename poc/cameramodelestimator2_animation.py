@@ -17,8 +17,10 @@ class CameraModelEstimator:
         self._reduce_dist_param = False
         self._cm = CameraModel(resolution)
         self._max_iter = None
+        self._x0 = None
 
     def _loss_lm(self, x):
+        self._x0 = x
         if self._reduce_dist_param:
             k1 = x[10]
             k2 = x[11]
@@ -193,6 +195,11 @@ class CameraModelEstimator:
         self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
         # Use least squares minimization with levenberg-marquardt algorithm
         return opt.least_squares(self._loss_lm, x0,
+                                 method = 'lm',
+                                 max_nfev = self._max_iter)
+
+    def continue_est(self):
+        return opt.least_squares(self._loss_lm, self._x0,
                                  method = 'lm',
                                  max_nfev = self._max_iter)
 
