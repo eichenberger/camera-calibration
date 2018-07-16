@@ -1,14 +1,14 @@
 import math
 import numpy as np
 
-from pointmodel2 import PointModel2
+from pointmodel import PointModel
 from cameramodel import CameraModel
 from cameramodelestimator import CameraModelEstimator
 from cameraparams import CameraParams
 
 class ProofOfConcept:
     def __init__(self, args):
-        self.mod = PointModel2(args.pointmodel)
+        self.mod = PointModel(args.pointmodel)
         self.mod.create_points(args.npoints)
 
         self._read_cameramodel(args.cameramodel)
@@ -66,5 +66,5 @@ class ProofOfConcept:
         cameraparams, res = cme.estimate()
         # convert it to more common if
         cameraparams = CameraParams(cameraparams)
-        return cameraparams, res
+        return cameraparams, res, cme
 

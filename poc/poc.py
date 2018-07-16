@@ -31,13 +31,17 @@ def run_application(args):
     plt.imshow(image)
 
     cameraparams = poc.cameraparams
-    cameraparams_est, res = poc.estimate()
+    cameraparams_est, res, cme = poc.estimate()
 
 
-    print("reprojection error: " + str(res.optimality))
+    print("Cost (reduced data): " + str(res.cost))
+    print("Optimality, gradient value (reduced data): " + str(res.optimality))
+    inliers = np.array(cme._inliers)
+    points = np.array(poc.mod.points)
+    print("Inliers in percent: " + str(100.0*inliers.shape[0]/points.shape[0]))
 
     print(array_string([" ", "fx", "fy", "cx", "cy", "thetax", "thetay", "thetaz",
-                        "tx", "tx", "tz", "k1", "k2", "k3", "p1", "p2"], 8))
+                        "tx", "ty", "tz", "k1", "k2", "k3", "p1", "p2"], 8))
     print("shuld:  " + cameraparams.get_string(8))
     print("is:     " + cameraparams_est.get_string(8))
 

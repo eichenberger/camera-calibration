@@ -130,7 +130,7 @@ class CameraModelEstimator:
             points2d_transformed = points2d_transformed/points2d_transformed[:,2]
             points2d_diff = points2d - points2d_transformed
             reprojection_error = list(map(lambda diff: np.linalg.norm(diff), points2d_diff))
-            inliers = [i for i,err in enumerate(reprojection_error) if err < 9]
+            inliers = [i for i,err in enumerate(reprojection_error) if err < 16]
             matches = len(inliers)
             if matches > max_matches:
                 intrinsic, extrinsic = self._rq(C[0:3,0:3])
