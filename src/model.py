@@ -8,8 +8,11 @@ class Model:
         with io.open(filename, 'r') as f:
             self.pointmap = json.JSONDecoder().decode(f.read())
 
-        self.points3d = list(map(lambda point: point['position'], self.pointmap))
-        self.points3d = np.asarray(self.points3d)
+        points3d = list(map(lambda point: point['position'], self.pointmap))
+        points3d = np.asarray(points3d)
+        self.points3d = np.ones((points3d.shape[0], 4))
+        self.points3d[:, 0:3] = points3d
+
 
         self.descriptors = np.array(
             list(map(lambda point: point['descriptors'], self.pointmap)),

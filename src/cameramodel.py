@@ -1,22 +1,35 @@
 import logging
 import numpy as np
 from math import sin, cos, floor, sqrt
+from cameraparams import CameraParams
 
 log = logging.getLogger()
 
 class CameraModel:
     """The sample camera model to use"""
-    def __init__(self, resolution, f = [20,20], c = None):
-        if c == None:
-            c = np.array(resolution)/2
+    def __init__(self, resolution, cameraparams=None):
         self._extrinsic_mat = np.mat([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
         self._resolution = resolution
-        self._k = [0]*3
-        self._p = [0]*2
+        if cameraparams:
+            self._k = [cameraparams.k1, cameraparams.k2, cameraparams.k3]
+            self._p = [cameraparams.p1, cameraparams.p2]
 
-        self._f = f
-        self._c = c
-        self._update_intrinsic()
+            self._f = [cameraparams.fx, cameraparams.fy]
+            self._c = [cameraparams.cx, cameraparams.cy]
+            self._update_intrinsic()
+            self.create_extrinsic([cameraparams.thetax,
+                                cameraparams.thetay,
+                                cameraparams.thetaz],
+                                [cameraparams.tx,
+                                cameraparams.ty,
+                                cameraparams.tz])
+        else:
+            self._f = [0]*2
+            self._c = [0]*2
+            self._k = [0]*3
+            self._p = [0]*2
+            self._update_intrinsic()
+
         self._transformation_mat = None
 
     @staticmethod
@@ -66,37 +79,47 @@ class CameraModel:
 
         # Get point coordinates from center of image
         point_center = point[0:2] - self._c
-        u = point_center[0] / self._f[0]
-        v = point_center[1] / self._f[1]
+        x = point_center[0] / self._f[0]
+        y = point_center[1] / self._f[1]
 
         # We need the radius of the point from the principal component
-        r = sqrt(u**2 + v**2)
+        r = sqrt(x**2 + y**2)
 
         # Radial distortion
-        newp[0] = u * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
-        newp[1] = v * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
+        newp[0] = x * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
+        newp[1] = y * (self._k[0]*r**2+self._k[1]*r**4+self._k[2]*r**6)
 
         # Tangential distortion
-        newp[0] = newp[0] + 2*self._p[0]*u*v + self._p[1]*(r**2+2*u**2)
-        newp[1] = newp[1] + 2*self._p[1]*u*v + self._p[0]*(r**2+2*v**2)
+        newp[0] = newp[0] + 2*self._p[0]*x*y + self._p[1]*(r**2+2*x**2)
+        newp[1] = newp[1] + 2*self._p[1]*x*y + self._p[0]*(r**2+2*y**2)
 
         # Calculate pixels again
-        newp[0] = newp[0] * self._f[0]
-        newp[1] = newp[1] * self._f[1]
+        newp[0] = self._f[0]*newp[0]
+        newp[1] = self._f[1]*newp[1]
 
         point = point + newp
 
         return point
+
+    def set_transfomration_mat(self, transformation_mat):
+        self._transformation_mat = transformation_mat
+
 
     def update_point_cloud(self, point_cloud):
         """ Get an image of a point cloud """
         if self._transformation_mat is not None:
             cam_mat = self._transformation_mat
         else:
+            log.debug("Intrinsic:")
+            log.debug(self._intrinsic_mat)
+            log.debug("Extrinsic:")
+            log.debug(self._extrinsic_mat)
             cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
+            log.debug("C:")
+            log.debug(cam_mat)
+
         n = point_cloud.shape[0]
-        points3d = np.concatenate((point_cloud, np.ones((n,1))), axis=1)
-        points2d = np.asarray(np.matmul(cam_mat, np.transpose(points3d)))
+        points2d = np.asarray(np.matmul(cam_mat, np.transpose(point_cloud)))
         # normalize third dimension to 1
         points2d = np.mat(points2d.transpose())
         points2d = np.asarray(points2d/points2d[:, 2])
@@ -119,4 +142,5 @@ class CameraModel:
         """ Add distortion to the camera model """
         self._k = k
         self._p = p
+
 

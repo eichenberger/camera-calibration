@@ -18,8 +18,8 @@ import multiprocessing as mp
 #from pointmodel import PointModel
 from model import Model
 from orbdescriptors import OrbDescriptors
-from cameramodel import CameraModel
-from cameramodelestimator_rand import CameraModelEstimator
+from cameramodelestimator import CameraModelEstimator
+from cameraparams import CameraParams
 
 def get_multiplier(n):
     if n == 0:
@@ -27,45 +27,12 @@ def get_multiplier(n):
     else:
         return 1
 
-def create_x0(resolution, i):
-    m_x = get_multiplier((i>>0)&0x1)
-    m_y = get_multiplier((i>>1)&0x1)
-    m_z = get_multiplier((i>>2)&0x1)
-
-    x0 = [1333, 1339,
-        629, 362,
-        m_x*math.pi/2, m_y*math.pi/2, m_z*math.pi/2,
-        0, 0, 0,
-        0.3, -2, 6.6,
-        0 , 0]
-    return x0
-
 def estimate(cme):
     return cme.estimate()
 
-def do_single(resolution, points2d, points3d):
+def do_estimate(resolution, points2d, points3d):
     cme = CameraModelEstimator(resolution, points2d, points3d)
-    x0 = create_x0(resolution, 0)
-    cme.set_x0(x0)
-    return cme.estimate(True)
-
-def show_res(res):
-    print("fx {}".format(res.x[0]))
-    print("fy {}".format(res.x[1]))
-    print("cx {}".format(res.x[2]))
-    print("cy {}".format(res.x[3]))
-    print("thetax {}".format(res.x[4]))
-    print("thetay {}".format(res.x[5]))
-    print("thetaz {}".format(res.x[6]))
-    print("tx {}".format(res.x[7]))
-    print("ty {}".format(res.x[8]))
-    print("tz {}".format(res.x[9]))
-    print("k1 {}".format(res.x[10]))
-    print("k2 {}".format(res.x[11]))
-    print("k3 {}".format(res.x[12]))
-    print("p1 {}".format(res.x[13]))
-    print("p2 {}".format(res.x[14]))
-
+    return cme.estimate()
 
 def plot_matches(image, image_descriptors, image_kps, pointcloud_matches,
                  keyframefile, keyframe_infos):
@@ -93,6 +60,14 @@ def plot_matches(image, image_descriptors, image_kps, pointcloud_matches,
     plt.imshow(out_image)
     plt.show()
 
+def array_string(array, space):
+    output = ""
+    for entry in array:
+        entry = str(entry)
+        output = output + entry
+        output = output + " "*(space - len(entry))
+
+    return output
 
 # Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
 # for zooming. Idea: If we take two pictures, we can probably fix tx to the
@@ -131,7 +106,9 @@ def main():
 
     kp_indexes = matches[:, 0].astype(int)
     matched_kps = kps[kp_indexes]
-    points2d = np.array(list(map(lambda kp: np.asarray(kp.pt), matched_kps)))
+    tmp_points2d = np.array(list(map(lambda kp: np.asarray(kp.pt), matched_kps)))
+    points2d = np.ones((tmp_points2d.shape[0],3))
+    points2d[:, 0:2] = tmp_points2d
 
     kp_image = image.copy()
     kp_image = cv2.drawKeypoints(image, matched_kps, kp_image)
@@ -143,29 +120,21 @@ def main():
 
     resolution = [image.shape[1], image.shape[0]]
     print("Optimize camera model")
-    res = do_single(resolution, points2d, points3d)
+    params, res = do_estimate(resolution, points2d, points3d)
+    params = CameraParams(params)
 
     #print("res: {}\nis:       {}".format(res, np.round(res.x, 2).tolist()))
-    show_res(res)
-
-    fx_est = res.x[0]
-    fy_est = res.x[1]
-    cx_est = res.x[2]
-    cy_est = res.x[3]
-    thetax_est = res.x[4]
-    thetay_est = res.x[5]
-    thetaz_est = res.x[6]
-    tx_est = res.x[7]
-    ty_est = res.x[8]
-    tz_est = res.x[9]
-    k1_est = res.x[10]
-    k2_est = res.x[11]
-    k3_est = res.x[12]
-    p1_est = res.x[13]
-    p2_est = res.x[14]
+    print("Found camera parameters:")
+    print(array_string([" ", "fx", "fy", "cx", "cy", "thetax", "thetay", "thetaz",
+                        "tx", "ty", "tz", "k1", "k2", "k3", "p1", "p2"], 8))
+    print("values: " + params.get_string(8, 2))
 
     image2 = cv2.drawKeypoints(image, matched_kps, None)
-    image2 = cv2.undistort(image2, np.asarray([[fx_est, 0, cx_est],[0, fy_est, cy_est], [0, 0, 1]]), np.asarray([k1_est, k2_est, p1_est, p2_est]))
+    image2 = cv2.undistort(image2, np.asarray([[params.fx, 0, params.cx],
+                                               [0, params.fy, params.cy],
+                                               [0, 0, 1]]),
+                           np.asarray([params.k1, params.k2,
+                                       params.p1, params.p2]))
 
     plt.imshow(image2)
     plt.show()
