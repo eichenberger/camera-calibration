@@ -6,8 +6,8 @@ import io
 
 class PointModel2:
     """docstring for PointModel2"""
-    def __init__(self):
-        with io.open("model.json", "r") as fd:
+    def __init__(self, model='model.json'):
+        with io.open(model, "r") as fd:
             self.model = json.load(fd)
 
 
@@ -27,12 +27,12 @@ class PointModel2:
 
     def create_points(self, n):
         model = self.model
-        self.points = np.zeros((len(self.model["connections"])*n, 3))
+        self.points = np.ones((len(self.model["connections"])*n, 4))
         i = 0
         for connection in model["connections"]:
             c0 = model["points"][connection[0]]["value"]
             c1 = model["points"][connection[1]]["value"]
-            self.points[i:i+n,:] = self._draw_line(c0, c1, n)
+            self.points[i:i+n,0:3] = self._draw_line(c0, c1, n)
             i = i + n
 
     def _show_model(self):

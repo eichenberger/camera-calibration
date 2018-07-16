@@ -1,22 +1,34 @@
 import logging
 import numpy as np
 from math import sin, cos, floor, sqrt
+from cameraparams import CameraParams
 
 log = logging.getLogger()
 
 class CameraModel:
     """The sample camera model to use"""
-    def __init__(self, resolution, f = [20,20], c = None):
-        if c == None:
-            c = np.array(resolution)/2
+    def __init__(self, resolution, cameraparams=None):
         self._extrinsic_mat = np.mat([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
         self._resolution = resolution
-        self._k = [0]*3
-        self._p = [0]*2
+        if cameraparams:
+            self._k = [cameraparams.k1, cameraparams.k2, cameraparams.k3]
+            self._p = [cameraparams.p1, cameraparams.p2]
 
-        self._f = f
-        self._c = c
-        self._update_intrinsic()
+            self._f = [cameraparams.fx, cameraparams.fy]
+            self._c = [cameraparams.cx, cameraparams.cy]
+            self._update_intrinsic()
+            self.create_extrinsic([cameraparams.thetax,
+                                cameraparams.thetay,
+                                cameraparams.thetaz],
+                                [cameraparams.tx,
+                                cameraparams.ty,
+                                cameraparams.tz])
+        else:
+            self._f = [0]*2
+            self._c = [0]*2
+            self._k = [0]*3
+            self._p = [0]*2
+            self._update_intrinsic()
 
         self._transformation_mat = None
 
@@ -107,8 +119,7 @@ class CameraModel:
             log.debug(cam_mat)
 
         n = point_cloud.shape[0]
-        points3d = np.concatenate((point_cloud, np.ones((n,1))), axis=1)
-        points2d = np.asarray(np.matmul(cam_mat, np.transpose(points3d)))
+        points2d = np.asarray(np.matmul(cam_mat, np.transpose(point_cloud)))
         # normalize third dimension to 1
         points2d = np.mat(points2d.transpose())
         points2d = np.asarray(points2d/points2d[:, 2])

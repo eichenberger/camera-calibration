@@ -3,24 +3,38 @@ import numpy as np
 import scipy.optimize as opt
 from cameramodel import CameraModel
 import cv2
+import random
 
 class CameraModelEstimator:
     """docstring for CameraModelEstimator"""
     def __init__(self, resolution, points2d, points3d):
         self._points2d = points2d
         self._points3d = points3d
-        self._points2d_reduced = []
-        self._points3d_reduced = []
+        self._points2d_inliers = []
+        self._points3d_inliers = []
+        self._inliers = []
         self._resolution = resolution
+        self._reduce_dist_param = False
         self._cm = CameraModel(resolution)
-        self._x0 = [200, 200,
-                    self._resolution[0]/2, self._resolution[1]/2,
-                    math.pi/2, math.pi/2, math.pi/2,
-                    -0.5, -0.5, 1,
-                    0, 0, 0,
-                    0 ,0]
+        self._max_iter = None
 
-    def _loss_lm(self, x):
+    def _loss_dist(self, x):
+        k1 = x[0]
+        k2 = x[1]
+        k3 = x[2]
+        p1 = x[3]
+        p2 = x[4]
+
+        self._cm.add_distortion([k1, k2, k3], [p1, p2])
+
+        self._cm.update_point_cloud(self._points3d_inliers)
+        points2d_est = self._cm.points2d
+
+        dists = points2d_est - self._points2d_inliers
+
+        return dists.flatten()
+
+    def _loss_full(self, x):
         fx = x[0]
         fy = x[1]
         cx = x[2]
@@ -36,46 +50,18 @@ class CameraModelEstimator:
         k3 = x[12]
         p1 = x[13]
         p2 = x[14]
-
         self._cm.set_c([cx, cy])
         self._cm.set_f([fx, fy])
-
         self._cm.create_extrinsic([thetax, thetay, thetaz], [tx, ty, tz])
         self._cm.add_distortion([k1, k2, k3], [p1, p2])
 
-        self._cm.update_point_cloud(self._points3d_reduced)
+        self._cm.update_point_cloud(self._points3d_inliers)
         points2d_est = self._cm.points2d
 
-        dists = points2d_est - self._points2d_reduced
-        res = np.zeros(len(dists))
-        # Calculate the squared distance over all points as loss function
-        for i, dist in enumerate(dists):
-            res[i] = np.dot(dist, dist)
+        dists = points2d_est - self._points2d_inliers
 
-        return res
+        return dists.flatten()
 
-    def _loss_simple(self, x):
-        k1 = x[0]
-        k2 = x[1]
-        k3 = x[2]
-        p1 = x[3]
-        p2 = x[4]
-
-        self._cm.set_transfomration_mat(self._C)
-        self._cm.add_distortion([k1, k2, k3], [p1, p2])
-        self._cm.update_point_cloud(self._points3d_reduced)
-        points2d_est = self._cm.points2d
-
-        dists = points2d_est - self._points2d_reduced
-        res = np.zeros(len(dists))
-        # Calculate the squared distance for all points
-        res = np.asarray(list(map(lambda dist: np.dot(dist, dist), dists)))
-
-        return res
-
-
-    def set_x0(self, x0):
-        self._x0 = x0
 
     def _rq(self, M):
         # User algorithm for RQ from QR decomposition from
@@ -86,13 +72,12 @@ class CameraModelEstimator:
         Q = np.matmul(P, np.transpose(Qstar))
         R = np.matmul(P, np.matmul(np.transpose(Rstar), P))
 
-        # Now make the diagonal of Q positiv, this can be done, because
-        # we know that the z direction is always positiv and the x/y axes
-        # of the camera look in the same direction as the ones of the image
-        T = np.diag(np.sign(np.diag(Q)))
+        # Now make the diagonal of R positiv. This can be done, because
+        # we know that f, and c is allways positive
+        T = np.diag(np.sign(np.diag(R)))
 
+        R = np.matmul(R, T)
         Q = np.matmul(Q, T)
-        R = np.matmul(T, R)
 
         return R, Q
 
@@ -112,132 +97,142 @@ class CameraModelEstimator:
                                   -np.multiply(np.multiply(np.ones((n,3)),uv[:,1]),XYZ)),
                                  axis=1)
 
-        # This is simple, we need all uvs flattened to a columnt vector
+        # This is simple, we need all uvs flattened to a column vector
         B = np.reshape(uv, (2*n, 1))
         return A, B
 
+    def _select_points(self, points3d, points2d, n=4):
+        # Random sample gives back unique values
+        sel = random.sample(range(0,len(points3d)), n)
+        sel3d = points3d[sel,:]
+        sel2d = points2d[sel,:]
+        return sel3d, sel2d
 
     def _guess_transformation(self, points3d, points2d):
-        points3d_cal = np.ones((points3d.shape[0], 4))
-        points3d_cal[:,0:3] = points3d[:,0:3]
+        max_matches = 0
+        transformation_mat = None
+        best_reprojection_error = None
+        inliers = None
+        points2d_est = None
+        # Try to find the best match within n tries
+        for i in range(0, 1000):
+            sel3d, sel2d = self._select_points(points3d, points2d, 10)
+            # We can't do a direct linear least square, we first need to create
+            # the lineare equation matrix see robotics and control 332 and camcald.m
+            # from the corresponding Matlab toolbox
+            A, B = self._convert_for_equation(sel3d[:,0:3], sel2d[:,0:2])
+            # least square should solve the problem for us
+            res = np.linalg.lstsq(A, B, rcond=None)
+            # Now we have all unknown parameters and we have to bring it to
+            # the normal 3x4 matrix. The last parameter C34 is 1!
+            C = np.reshape(np.concatenate((res[0], [[1]])), (3, 4))
+            points2d_transformed = np.transpose(np.matmul(C, np.transpose(points3d)))
+            points2d_transformed = points2d_transformed/points2d_transformed[:,2]
+            points2d_diff = points2d - points2d_transformed
+            reprojection_error = list(map(lambda diff: np.linalg.norm(diff), points2d_diff))
+            inliers = [i for i,err in enumerate(reprojection_error) if err < 9]
+            matches = len(inliers)
+            if matches > max_matches:
+                intrinsic, extrinsic = self._rq(C[0:3,0:3])
+                intrinsic = np.multiply(intrinsic, 1/intrinsic[2,2])
 
-        points2d_cal = np.ones((points2d.shape[0], 3))
-        points2d_cal[:,0:2] = points2d[:,0:2]
+                if math.fabs(intrinsic[0,1]) > 10:
+                    continue
 
-        # We can't do a direct linear least square, we first need to create
-        # the lineare equation matrix see robotics and control 332 and camcald.m
-        # from the corresponding Matlab toolbox
-        A, B = self._convert_for_equation(points3d_cal[:, 0:3], points2d_cal[:, 0:2])
-        # least square should solve the problem for us
-        res = np.linalg.lstsq(A, B)
-        # Now we have all unknown parameters and we have to bring it to
-        # the normal 3x4 matrix. The last parameter C34 is 1!
-        C = np.reshape(np.concatenate((res[0], [[1]])), (3, 4))
-        print("Found Transformation matrix: {}".format(C))
-
-        # Make rq matrix decomposition, transformation is not taken into account
-        intrinsic, extrinsic = self._rq(C[0:3,0:3])
-        print("Intrinsic: {}, Extrinsic: {}".format(intrinsic, extrinsic))
-
-        self._C = C
-        self._intrinsic = intrinsic
-        self._extrinsic = extrinsic
-
-
-    def _guess_pose(self):
-        camera_matrix = np.array([[200.0, 0.0, self._resolution[0]/2],
-                         [0.0, 200.0, self._resolution[1]/2],
-                         [0.0, 0.0, 1.0]])
-        dist_coeff = np.array([])
-
-        points3d = np.array([self._points3d])
-        points2d = np.array([self._points2d[:,0:2]])
-
-        res = cv2.solvePnPRansac(points3d, points2d, camera_matrix, dist_coeff)
-        # return the pose, the translation and all valid points
-        return res[1], res[2], res[3].transpose()[0]
-
-    def estimate_new(self, x0):
-        self._points2d_reduced = self._points2d
-        self._points3d_reduced = self._points3d
-
-
-        # If we guess the pose via pnp
-        rvec, tvec, valid_points = self._guess_pose()
-        # TODO: remove creepy conversion
-        self._x0[4] = rvec[0][0]
-        self._x0[5] = rvec[1][0]
-        self._x0[6] = rvec[2][0]
-        self._x0[7] = tvec[0][0]
-        self._x0[8] = tvec[1][0]
-        self._x0[9] = tvec[2][0]
-        # Throwaway points that are probably missmatches
-        self._points2d_reduced = self._points2d[valid_points]
-        self._points3d_reduced = self._points3d[valid_points]
-
-        self._guess_transformation(self._points3d[0:50], self._points2d[0:50])
-
-        # Use least squares minimization with levenberg-marquardt algorithm
-        return opt.least_squares(self._loss_simple, x0,
-                                 method = 'lm')
-
-
-    def estimate(self, guess_pose = False):
-        bounds_lb = [(1.0, 1000.0),(1.0, 1000.0),
-                  (self._resolution[0]/2 - 20, self._resolution[0]/2 + 20),
-                  (self._resolution[1]/2 - 20, self._resolution[1]/2 + 20),
-                  (-3.15, 3.15), (-3.15, 3.15), (-3.15/2, 3.15/2),
-                  (-100.0, 100.0), (-100.0, 100.0),
-                  (-1.0, 1.0), (-0.5, 0.5), (-0.2, 0.2),
-                  (-1.0, 1.0), (-0.5, 0.5)]
-
-
-        bounds_lm = ([1,1,
-                   0,0,
-                   0,0,0,
-                   -100, -100,
-                   -3, -3, -3,
-                   -3, -3],
-                  [1000, 1000,
-                   self._resolution[0], self._resolution[1],
-                   2*math.pi, 2*math.pi, 2*math.pi,
-                   100, 100,
-                   3, 3, 3,
-                   3, 3])
-
-        scale = [1e-4, 1e-4,
-                 1e-6, 1e-6,
-                 1e-8, 1e-8, 1e-8,
-                 1e-8, 1e-8,
-                 1e-8, 1e-8, 1e-8,
-                 1e-8, 1e-8]
-
-#        return opt.minimize(self._loss, x0,
-#                            bounds = bounds,
-#                            method = 'L-BFGS-B')
+                self._C = C
+                self._intrinsic = np.asarray(intrinsic)
+                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]
+                self._extrinsic = np.asarray(np.concatenate((extrinsic, t), axis=1))
+                max_matches = matches
+                best_reprojection_error = reprojection_error
+                self._inliers = inliers
+                points2d_est = points2d_transformed
+#        print("i: " + str(i))
+#        print("Max matches: " + str(max_matches))
+#        print("Match percentage: " + str((max_matches/len(points2d))*100))
+#        print("Found transformation matrix: {}".format(C))
 #
-        self._points2d_reduced = self._points2d
-        self._points3d_reduced = self._points3d
+#        # Make rq matrix decomposition, transformation is not taken into account
+#        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, extrinsic))
 
-        # If we guess the pose via pnp
-        if guess_pose:
-            rvec, tvec, valid_points = self._guess_pose()
-            # TODO: remove creepy conversion
-            self._x0[4] = rvec[0][0]
-            self._x0[5] = rvec[1][0]
-            self._x0[6] = rvec[2][0]
-            self._x0[7] = tvec[0][0]
-            self._x0[8] = tvec[1][0]
-            self._x0[9] = tvec[2][0]
-            # Throwaway points that could be missmatches
-            self._points2d_reduced = self._points2d[valid_points]
-            self._points3d_reduced = self._points3d[valid_points]
+        return points2d_est
+
+    def _guess_distortion_lin(self, points2d_are, points2d_est, f, c):
+        # uv = [u, v]
+        uv = np.asarray((points2d_est[:,0:2]) - c)
+        xy = (uv)/f
+        radius = np.linalg.norm(xy, axis=(1))
+        x = xy[:,0]
+        y = xy[:,1]
+        # Because uv[:,0] is a onedimensional array we need to transpose M1 so
+        # that we have column vectors
+        M1 = np.transpose(np.array([x*radius**2, x*radius**4, x*radius**6,
+                                    2*x*y, radius**2+2*x**2]))
+        M2 = np.transpose(np.array([y*radius**2, y*radius**4, y*radius**6,
+                                    radius**2+2*y**2, 2*y*x]))
+        M = np.zeros((M1.shape[0]*2,M1.shape[1]))
+        M[0::2] = M1*f[0]
+        M[1::2] = M2*f[1]
+        delta = points2d_are[:,0:2] - points2d_est[:,0:2]
+        delta = delta.reshape(delta.shape[0]*2, 1)
+        distortion = np.linalg.lstsq(M, delta, rcond=-1)
+        print("Distortion: {}".format(distortion[0]))
+        return distortion
 
 
+    def estimate(self):
+        self._points2d_inliers = self._points2d
+        self._points3d_inliers = self._points3d
+
+        # Guess initial intrinsic and extrinsic mat with linear least squares
+        points2d_est = self._guess_transformation(self._points3d, self._points2d)
+        self._points2d_inliers = self._points2d[self._inliers]
+        self._points3d_inliers = self._points3d[self._inliers]
+
+        # If we don't use the full intrinsic and extrensic matrix,
+        # we can safe a lot of parameters to optimize! We pay that with
+        # the overhead of calculate sin/cos/tan
+        fx = self._intrinsic[0,0]
+        fy = self._intrinsic[1,1]
+        cx = self._intrinsic[0,2]
+        cy = self._intrinsic[1,2]
+
+        points2d_est_inliers = points2d_est[self._inliers]
+        # Does not work
+#        self._guess_distortion_lin(self._points2d,
+#                                   points2d_est,
+#                                   [fx, fy], [cx, cy])
+#
+        # Calculate angles
+        rot_x = np.arctan2(self._extrinsic[1,2], self._extrinsic[2,2])
+        rot_y = np.arctan2(self._extrinsic[0,2], np.sqrt(self._extrinsic[1,2]**2 + self._extrinsic[2,2]**2))
+        rot_z = np.arctan2(self._extrinsic[0,1], self._extrinsic[0,0])
+        tx = self._extrinsic[0,3]
+        ty = self._extrinsic[1,3]
+        tz = self._extrinsic[2,3]
+
+        # Create an array from the intrinsic, extrinsic and k0-k2, p0-p1
+        x0 = [0, 0, 0, 0, 0]
+
+        self._cm.set_c([cx, cy])
+        self._cm.set_f([fx, fy])
+        self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
         # Use least squares minimization with levenberg-marquardt algorithm
-        return opt.least_squares(self._loss_lm, self._x0,
-                                 method = 'lm')
+        res = opt.least_squares(self._loss_dist, x0,
+                                 method = 'lm',
+                                 max_nfev = self._max_iter)
+        x0 = [fx, fy, cx, cy, rot_x, rot_y, rot_z, tx, ty, tz,
+                 res.x[0], res.x[1], res.x[2], res.x[3], res.x[4]]
 
+        res = opt.least_squares(self._loss_full, x0,
+                                 method = 'lm',
+                                 max_nfev = self._max_iter)
+        cameraparams = {}
+        cameraparams['f'] = [res.x[0], res.x[1]]
+        cameraparams['c'] = [res.x[2], res.x[3]]
+        cameraparams['theta'] = [res.x[4], res.x[5], res.x[6]]
+        cameraparams['t'] = [res.x[7], res.x[8], res.x[9]]
+        cameraparams['k'] = [res.x[10], res.x[11], res.x[12]]
+        cameraparams['p'] = [res.x[13], res.x[14]]
 
-
-
+        return cameraparams, res
