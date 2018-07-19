@@ -67,9 +67,6 @@ def run_application(args):
     plt.imshow(diff_img)
     plt.show()
 
-
-
-
 # Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
 # for zooming. Idea: If we take two pictures, we can probably fix tx to the
 # same value

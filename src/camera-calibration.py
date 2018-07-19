@@ -69,14 +69,11 @@ def array_string(array, space):
 
     return output
 
-# Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
-# for zooming. Idea: If we take two pictures, we can probably fix tx to the
-# same value
-def main():
+def do_calibration(args):
     print("Start camera calibration")
 
-    pointcloudfile = sys.argv[1]
-    imagefile = sys.argv[2]
+    pointcloudfile = args.cloud
+    imagefile = args.image
     keyframefile = None
     keyframe_infos = None
     if len(sys.argv) > 3:
@@ -140,6 +137,20 @@ def main():
     plt.show()
 
     print("Exit program")
+
+
+# Problem: tx and fx/fy depend on each other. We can change fx/fy or tx
+# for zooming. Idea: If we take two pictures, we can probably fix tx to the
+# same value
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='This is a simple demo application that takes an image and a ORB-SLAM map as input and will then do camera calibration based on it')
+    parser.add_argument(help='Point cloud used for calibration', dest='cloud', type=str)
+    parser.add_argument(help='Image used for calibration', dest='image', type=str)
+
+    args = parser.parse_args()
+
+    do_calibration(args)
 
 if __name__ == '__main__':
     main()

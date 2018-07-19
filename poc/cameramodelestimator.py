@@ -110,8 +110,6 @@ class CameraModelEstimator:
 
     def _guess_transformation(self, points3d, points2d):
         max_matches = 0
-        transformation_mat = None
-        best_reprojection_error = None
         inliers = None
         points2d_est = None
         # Try to find the best match within n tries
@@ -141,19 +139,20 @@ class CameraModelEstimator:
 
                 self._C = C
                 self._intrinsic = np.asarray(intrinsic)
-                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]
+                scale = np.linalg.norm(C[2,0:3])
+                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]/scale
                 self._extrinsic = np.asarray(np.concatenate((extrinsic, t), axis=1))
                 max_matches = matches
-                best_reprojection_error = reprojection_error
                 self._inliers = inliers
                 points2d_est = points2d_transformed
-#        print("i: " + str(i))
-#        print("Max matches: " + str(max_matches))
-#        print("Match percentage: " + str((max_matches/len(points2d))*100))
-#        print("Found transformation matrix: {}".format(C))
-#
-#        # Make rq matrix decomposition, transformation is not taken into account
-#        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, extrinsic))
+
+        print("i: " + str(i))
+        print("Max matches: " + str(max_matches))
+        print("Match percentage: " + str((max_matches/len(points2d))*100))
+        print("Found transformation matrix: {}".format(C))
+
+        # Make rq matrix decomposition, transformation is not taken into account
+        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, self._extrinsic))
 
         return points2d_est
 

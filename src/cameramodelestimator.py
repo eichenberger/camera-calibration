@@ -16,7 +16,7 @@ class CameraModelEstimator:
         self._resolution = resolution
         self._reduce_dist_param = False
         self._cm = CameraModel(resolution)
-        self._max_iter = None
+        self._max_iter = 5000
 
     def _loss_dist(self, x):
         k1 = x[0]
@@ -106,12 +106,11 @@ class CameraModelEstimator:
         sel = random.sample(range(0,len(points3d)), n)
         sel3d = points3d[sel,:]
         sel2d = points2d[sel,:]
+        self.sel = sel
         return sel3d, sel2d
 
     def _guess_transformation(self, points3d, points2d):
         max_matches = 0
-        transformation_mat = None
-        best_reprojection_error = None
         inliers = None
         points2d_est = None
         # Try to find the best match within n tries
@@ -130,7 +129,7 @@ class CameraModelEstimator:
             points2d_transformed = points2d_transformed/points2d_transformed[:,2]
             points2d_diff = points2d - points2d_transformed
             reprojection_error = list(map(lambda diff: np.linalg.norm(diff), points2d_diff))
-            inliers = [i for i,err in enumerate(reprojection_error) if err < 16]
+            inliers = [i for i,err in enumerate(reprojection_error) if err < 9]
             matches = len(inliers)
             if matches > max_matches:
                 intrinsic, extrinsic = self._rq(C[0:3,0:3])
@@ -141,19 +140,23 @@ class CameraModelEstimator:
 
                 self._C = C
                 self._intrinsic = np.asarray(intrinsic)
-                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]
+                # Why is scale exactly that?
+                scale = np.linalg.norm(C[2,0:3])
+                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]/scale
                 self._extrinsic = np.asarray(np.concatenate((extrinsic, t), axis=1))
                 max_matches = matches
-                best_reprojection_error = reprojection_error
                 self._inliers = inliers
                 points2d_est = points2d_transformed
+                print(matches)
+                print(sorted(self.sel))
+                print(sorted(inliers))
         print("i: " + str(i))
         print("Max matches: " + str(max_matches))
         print("Match percentage: " + str((max_matches/len(points2d))*100))
         print("Found transformation matrix: {}".format(C))
 
         # Make rq matrix decomposition, transformation is not taken into account
-        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, extrinsic))
+        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, self._extrinsic))
 
         return points2d_est
 
@@ -212,21 +215,13 @@ class CameraModelEstimator:
         tz = self._extrinsic[2,3]
 
         # Create an array from the intrinsic, extrinsic and k0-k2, p0-p1
-        x0 = [0, 0, 0, 0, 0]
-
-        self._cm.set_c([cx, cy])
-        self._cm.set_f([fx, fy])
-        self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
-        # Use least squares minimization with levenberg-marquardt algorithm
-        res = opt.least_squares(self._loss_dist, x0,
-                                 method = 'lm',
-                                 max_nfev = self._max_iter)
         x0 = [fx, fy, cx, cy, rot_x, rot_y, rot_z, tx, ty, tz,
-                 res.x[0], res.x[1], res.x[2], res.x[3], res.x[4]]
-
+                 0.0, 0.0, 0.0, 0.0, 0.0]
+        print("x0: {}".format(x0))
         res = opt.least_squares(self._loss_full, x0,
                                  method = 'lm',
                                  max_nfev = self._max_iter)
+
         cameraparams = {}
         cameraparams['f'] = [res.x[0], res.x[1]]
         cameraparams['c'] = [res.x[2], res.x[3]]
