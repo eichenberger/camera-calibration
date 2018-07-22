@@ -1,0 +1,19 @@
+Thema: Pointcloud based camera calibration
+
+Um was geht es:
+Um das Kameramodell zu bestimmen, wird heute häufig auf ein Sachbrett zurückgegriffen. Durch Aufnahme von mehreren Bildern, welche das Schachbrett zeigen, können die Parameter für das Kameramodell errechnet werde. Da die Kalibration für den Benutzer relativ aufwendig ist, ist die Idee dieser Projektarbeit, die Kalibration mit Hilfe einer bekannten Punktewolke durchzuführen. Punkte auf dem aktuellen Bild, sollen mit der Punktewolke abgeglichen werden. Das Kameramodell soll nachher mit Hilfe der wiedergefundenen Punkte errechnet werden.
+
+Arbeiten:
+    - Erstellen einer Punktewolke mit Hilfe einer Referenz Kamera (Modell bekannt)
+    - Erstellen einer Library mit welcher man durch Hilfe der Punktewolke das intrinsische Kamera Modell herleiten kann
+    - Erstellen einer Demo Applikation mit welcher man verschieden Kameras (oder Objektive) kalibrieren kann
+    - Dokumentation und Vergleich von dieser Kalibrationsmethode mit der Standardkalibration basierend auf dem Schachbrett
+
+Paper mit ähnlichen Themen:
+    - Zhengyou Zhang, Senior Member, IEEE, A Flexible New Technique for Camera Calibration 
+    - Camera Calibration with Precise Extraction of Feature Points Using Projective Transformation
+    - Effective Self-calibration for Camera Parameters and Hand-eye Geometry Based on Two Feature Points Motions
+    - SQ.-T. LUONG, O.D. FAUGERAS, self-calibration of a moving camera from point correspondences and fundamental matrices
+
+Sonstige PDFs:
+    - https://lmb.informatik.uni-freiburg.de/lectures/praktika_brox/bvpraktikum/BVAnl_kam_kalib.pdf
