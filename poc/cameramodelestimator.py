@@ -76,8 +76,8 @@ class CameraModelEstimator:
         A = np.zeros((2*n, 11))
         uv = np.mat(uv)
         # This is triky we need the form
-        # [[C11*X, C12*Y, C13*Z, C14, 0, 0, 0, 0, -u*C31*X, -u*C32*Y, -uC33*Z],
-        #  [0, 0, 0, 0, C21*X, C22*y, C23*Z, C24, -u*C31*X, -u*C32*Y, -uC33*Z]]
+        # [[P11*X, P12*Y, P13*Z, P14, 0, 0, 0, 0, -u*P31*X, -u*P32*Y, -uP33*Z],
+        #  [0, 0, 0, 0, P21*X, P22*y, P23*Z, P24, -u*P31*X, -u*P32*Y, -uP33*Z]]
         # The following black magic will do the trick
         A[0::2] = np.concatenate((XYZ, np.ones((n, 1)), np.zeros((n,4)),
                                   -np.multiply(np.multiply(np.ones((n,3)),uv[:,0]),XYZ)),
@@ -113,28 +113,28 @@ class CameraModelEstimator:
             res = np.linalg.lstsq(A, B, rcond=None)
             # Now we have all unknown parameters and we have to bring it to
             # the normal 3x4 matrix. The last parameter C34 is 1!
-            C = np.reshape(np.concatenate((res[0], [[1]])), (3, 4))
+            P = np.reshape(np.concatenate((res[0], [[1]])), (3, 4))
 
-            # Correct C34 to its actual value
-            scale = np.linalg.norm(C[2,0:3])
-            C = C/scale
+            # Correct P34 to its actual value
+            scale = np.linalg.norm(P[2,0:3])
+            P = P/scale
 
-            points2d_transformed = np.transpose(np.matmul(C, np.transpose(points3d)))
+            points2d_transformed = np.transpose(np.matmul(P, np.transpose(points3d)))
             points2d_transformed = points2d_transformed/points2d_transformed[:,2]
             points2d_diff = points2d - points2d_transformed
             reprojection_error = list(map(lambda diff: np.linalg.norm(diff), points2d_diff))
             inliers = [i for i,err in enumerate(reprojection_error) if err < 9]
             matches = len(inliers)
             if matches > max_matches:
-                intrinsic, extrinsic = self._rq(C[0:3,0:3])
+                intrinsic, extrinsic = self._rq(P[0:3,0:3])
                 intrinsic = np.multiply(intrinsic, 1/intrinsic[2,2])
 
                 if math.fabs(intrinsic[0,1]) > 10:
                     continue
 
-                self._C = C
+                self._P = P
                 self._intrinsic = np.asarray(intrinsic)
-                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]
+                t = np.linalg.lstsq(intrinsic, P[:,3], rcond=None)[0]
                 self._extrinsic = np.asarray(np.concatenate((extrinsic, t), axis=1))
                 max_matches = matches
                 self._inliers = inliers
@@ -144,7 +144,7 @@ class CameraModelEstimator:
         self.logger.debug("i: " + str(i))
         self.logger.debug("Max matches: " + str(max_matches))
         self.logger.debug("Match percentage: " + str((max_matches/len(points2d))*100))
-        self.logger.debug("Found transformation matrix: {}".format(C))
+        self.logger.debug("Found transformation matrix: {}".format(P))
 
         # Make rq matrix decomposition, transformation is not taken into account
         self.logger.debug("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, self._extrinsic))
