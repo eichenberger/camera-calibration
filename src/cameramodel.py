@@ -3,11 +3,10 @@ import numpy as np
 from math import sin, cos, floor, sqrt
 from cameraparams import CameraParams
 
-log = logging.getLogger()
 
 class CameraModel:
     """The sample camera model to use"""
-    def __init__(self, resolution, cameraparams=None):
+    def __init__(self, resolution, cameraparams=None, logger = None):
         self._extrinsic_mat = np.mat([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
         self._resolution = resolution
         if cameraparams:
@@ -31,6 +30,12 @@ class CameraModel:
             self._update_intrinsic()
 
         self._transformation_mat = None
+        if logger == None:
+            self.logger = logging.getLogger("cameramodel")
+            self.logger.setLevel(logging.WARNING)
+        else:
+            self.logger = logger
+
 
     @staticmethod
     def _rot_mat_x(angle):
@@ -110,13 +115,13 @@ class CameraModel:
         if self._transformation_mat is not None:
             cam_mat = self._transformation_mat
         else:
-            log.debug("Intrinsic:")
-            log.debug(self._intrinsic_mat)
-            log.debug("Extrinsic:")
-            log.debug(self._extrinsic_mat)
+            self.logger.debug("Intrinsic:")
+            self.logger.debug(self._intrinsic_mat)
+            self.logger.debug("Extrinsic:")
+            self.logger.debug(self._extrinsic_mat)
             cam_mat = np.matmul(self._intrinsic_mat, self._extrinsic_mat)
-            log.debug("C:")
-            log.debug(cam_mat)
+            self.logger.debug("C:")
+            self.logger.debug(cam_mat)
 
         n = point_cloud.shape[0]
         points2d = np.asarray(np.matmul(cam_mat, np.transpose(point_cloud)))

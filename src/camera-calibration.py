@@ -9,6 +9,7 @@ import math
 import sys
 import io
 import json
+import logging
 
 import numpy as np
 import cv2
@@ -74,11 +75,7 @@ def do_calibration(args):
 
     pointcloudfile = args.cloud
     imagefile = args.image
-    keyframefile = None
-    keyframe_infos = None
-    if len(sys.argv) > 3:
-        keyframefile = sys.argv[3]
-        keyframe_infos = sys.argv[4]
+
     # Workaround so that orb compute doesn't crash
     cv2.ocl.setUseOpenCL(False)
 
@@ -92,11 +89,6 @@ def do_calibration(args):
     print("Match keypoints")
     matches = descriptors.match_descriptors(pointcloud.descriptors)
     matches = np.asarray(matches)
-
-    if keyframefile:
-        plot_matches(image, descriptors._descriptors, descriptors.get_key_points(),
-                     matches, keyframefile, keyframe_infos)
-
 
     kps =  descriptors.get_key_points()
     kps = np.asarray(kps)
@@ -144,11 +136,21 @@ def do_calibration(args):
 # same value
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description='This is a simple demo application that takes an image and a ORB-SLAM map as input and will then do camera calibration based on it')
     parser.add_argument(help='Point cloud used for calibration', dest='cloud', type=str)
     parser.add_argument(help='Image used for calibration', dest='image', type=str)
+    parser.add_argument('-v', help='Verbose output', dest='verbose', action='store_true')
 
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    else:
+        logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+
+
+
 
     do_calibration(args)
 

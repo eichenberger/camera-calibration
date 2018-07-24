@@ -6,10 +6,12 @@ Github: eichenberger
 Description: This is a proof of concept for point cloud base camera calibration
 """
 import math
+import sys
 import numpy as np
 from matplotlib import pyplot as plt
 import multiprocessing as mp
 import cv2
+import logging
 
 #from pointmodel import PointModel
 from poc_app import ProofOfConcept
@@ -77,9 +79,15 @@ def main():
     parser.add_argument('-n', '--noise', help='Noise in the image data', dest='noise', type=float, default=0.0)
     parser.add_argument('-m', '--missclassified', help='Points missclassified (wrong location)', dest='missclassified', type=int, default=0)
     parser.add_argument('-p', '--pointmodel', help='Point model to use', dest='pointmodel', type=str, default='model.json')
+    parser.add_argument('-v', help='Verbose output', dest='verbose', action='store_true')
     parser.add_argument('--npoints', help='Number of points to use for the image', dest='npoints', type=int, default=20)
 
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    else:
+        logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
     run_application(args)
 

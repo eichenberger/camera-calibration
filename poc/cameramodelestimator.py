@@ -4,10 +4,11 @@ import scipy.optimize as opt
 from cameramodel import CameraModel
 import cv2
 import random
+import logging
 
 class CameraModelEstimator:
     """docstring for CameraModelEstimator"""
-    def __init__(self, resolution, points2d, points3d):
+    def __init__(self, resolution, points2d, points3d, logger = None):
         self._points2d = points2d
         self._points3d = points3d
         self._points2d_inliers = []
@@ -16,23 +17,11 @@ class CameraModelEstimator:
         self._resolution = resolution
         self._reduce_dist_param = False
         self._cm = CameraModel(resolution)
-        self._max_iter = None
-
-    def _loss_dist(self, x):
-        k1 = x[0]
-        k2 = x[1]
-        k3 = x[2]
-        p1 = x[3]
-        p2 = x[4]
-
-        self._cm.add_distortion([k1, k2, k3], [p1, p2])
-
-        self._cm.update_point_cloud(self._points3d_inliers)
-        points2d_est = self._cm.points2d
-
-        dists = points2d_est - self._points2d_inliers
-
-        return dists.flatten()
+        self._max_iter = 5000
+        if logger == None:
+            self.logger = logging.getLogger()
+        else:
+            self.logger = logger
 
     def _loss_full(self, x):
         fx = x[0]
@@ -106,6 +95,7 @@ class CameraModelEstimator:
         sel = random.sample(range(0,len(points3d)), n)
         sel3d = points3d[sel,:]
         sel2d = points2d[sel,:]
+        self.sel = sel
         return sel3d, sel2d
 
     def _guess_transformation(self, points3d, points2d):
@@ -113,7 +103,7 @@ class CameraModelEstimator:
         inliers = None
         points2d_est = None
         # Try to find the best match within n tries
-        for i in range(0, 1000):
+        for i in range(0, 3000):
             sel3d, sel2d = self._select_points(points3d, points2d, 10)
             # We can't do a direct linear least square, we first need to create
             # the lineare equation matrix see robotics and control 332 and camcald.m
@@ -124,11 +114,16 @@ class CameraModelEstimator:
             # Now we have all unknown parameters and we have to bring it to
             # the normal 3x4 matrix. The last parameter C34 is 1!
             C = np.reshape(np.concatenate((res[0], [[1]])), (3, 4))
+
+            # Correct C34 to its actual value
+            scale = np.linalg.norm(C[2,0:3])
+            C = C/scale
+
             points2d_transformed = np.transpose(np.matmul(C, np.transpose(points3d)))
             points2d_transformed = points2d_transformed/points2d_transformed[:,2]
             points2d_diff = points2d - points2d_transformed
             reprojection_error = list(map(lambda diff: np.linalg.norm(diff), points2d_diff))
-            inliers = [i for i,err in enumerate(reprojection_error) if err < 16]
+            inliers = [i for i,err in enumerate(reprojection_error) if err < 9]
             matches = len(inliers)
             if matches > max_matches:
                 intrinsic, extrinsic = self._rq(C[0:3,0:3])
@@ -139,20 +134,20 @@ class CameraModelEstimator:
 
                 self._C = C
                 self._intrinsic = np.asarray(intrinsic)
-                scale = np.linalg.norm(C[2,0:3])
-                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]/scale
+                t = np.linalg.lstsq(intrinsic, C[:,3], rcond=None)[0]
                 self._extrinsic = np.asarray(np.concatenate((extrinsic, t), axis=1))
                 max_matches = matches
                 self._inliers = inliers
                 points2d_est = points2d_transformed
-
-        print("i: " + str(i))
-        print("Max matches: " + str(max_matches))
-        print("Match percentage: " + str((max_matches/len(points2d))*100))
-        print("Found transformation matrix: {}".format(C))
+                self.logger.debug(matches)
+                self.logger.debug(sorted(inliers))
+        self.logger.debug("i: " + str(i))
+        self.logger.debug("Max matches: " + str(max_matches))
+        self.logger.debug("Match percentage: " + str((max_matches/len(points2d))*100))
+        self.logger.debug("Found transformation matrix: {}".format(C))
 
         # Make rq matrix decomposition, transformation is not taken into account
-        print("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, self._extrinsic))
+        self.logger.debug("Intrinsic: {}\nExtrinsic: {}".format(intrinsic, self._extrinsic))
 
         return points2d_est
 
@@ -175,7 +170,7 @@ class CameraModelEstimator:
         delta = points2d_are[:,0:2] - points2d_est[:,0:2]
         delta = delta.reshape(delta.shape[0]*2, 1)
         distortion = np.linalg.lstsq(M, delta, rcond=-1)
-        print("Distortion: {}".format(distortion[0]))
+        self.logger.debug("Distortion: {}".format(distortion[0]))
         return distortion
 
 
@@ -197,11 +192,6 @@ class CameraModelEstimator:
         cy = self._intrinsic[1,2]
 
         points2d_est_inliers = points2d_est[self._inliers]
-        # Does not work
-#        self._guess_distortion_lin(self._points2d,
-#                                   points2d_est,
-#                                   [fx, fy], [cx, cy])
-#
         # Calculate angles
         rot_x = np.arctan2(self._extrinsic[1,2], self._extrinsic[2,2])
         rot_y = np.arctan2(self._extrinsic[0,2], np.sqrt(self._extrinsic[1,2]**2 + self._extrinsic[2,2]**2))
@@ -211,21 +201,19 @@ class CameraModelEstimator:
         tz = self._extrinsic[2,3]
 
         # Create an array from the intrinsic, extrinsic and k0-k2, p0-p1
-        x0 = [0, 0, 0, 0, 0]
-
-        self._cm.set_c([cx, cy])
-        self._cm.set_f([fx, fy])
-        self._cm.create_extrinsic([rot_x, rot_y, rot_z], [tx, ty, tz])
-        # Use least squares minimization with levenberg-marquardt algorithm
-        res = opt.least_squares(self._loss_dist, x0,
-                                 method = 'lm',
-                                 max_nfev = self._max_iter)
         x0 = [fx, fy, cx, cy, rot_x, rot_y, rot_z, tx, ty, tz,
-                 res.x[0], res.x[1], res.x[2], res.x[3], res.x[4]]
-
+                 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.logger.debug("x0: {}".format(x0))
         res = opt.least_squares(self._loss_full, x0,
                                  method = 'lm',
                                  max_nfev = self._max_iter)
+
+        # If fy is < 0 our thetaz points in the wrong direction
+        if res.x[1] < 0:
+            self.logger.debug("Fix fy")
+            res.x[1] = res.x[1] * -1
+            res.x[5] = res.x[5] - math.pi
+
         cameraparams = {}
         cameraparams['f'] = [res.x[0], res.x[1]]
         cameraparams['c'] = [res.x[2], res.x[3]]
