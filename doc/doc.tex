@@ -26,13 +26,19 @@ To reconstruct the pose and position of a camera the intrinsic camera model must
 
 \section*{Executive Summary}
 Augmented reality is a fast growing area in computer vision. New sensors and faster processors make this technology possible.\\\\
-One application we can realize with augmented reality is the virtual construction of buildings. We can project the virtual building onto an image of the location where the building stood/will stand. To make this projection possible, we must know the location of the viewer and the properties of the camera. In this project, we focus on finding the properties of the camera. Finding these properties is called camera calibration. We try to find a novel method to calibrate a camera based on known points. We need to know the position of these points in the 3D world and the points in the 2D image.\\\\
+One application we can realize with augmented reality is the virtual construction of buildings. We can project the virtual building onto an image of the location where the building stood/will stand. To make this projection possible, we must know the location of the viewer and the properties of the camera. In this project, we focus on finding the properties of the camera. Finding these properties is called camera calibration. We try to find a novel method to calibrate a camera based on known points. We need to know the position of these points in the 3D world and the position of the points in the 2D image.\\\\
 The here shown approach allows us to calibrate a camera just in place. Existing calibration processes require an image of a checkerboard. This approach isn't intuitive for end users.
 
 \tableofcontents
 
 \chapter{Introduction}
-To build a new railway station, the city of Bern decided in the year 1865 to tear down the Christoffeltower. This building was the entrance to Bern through the city wall. Today the area around the railway station is heavily used by buses and cars. Therefore, it is impossible to rebuild the tower physically. Luckily we nowadays have the technology to create an illusion of such a building. The idea is to build a virtual Chritoffeltower by using augmented reality on a smartphone.\\\\
+To build a new railway station, the city of Bern decided in the year 1865 to tear down the Christoffeltower. This building was the entrance to Bern through the city wall. Today the area around the railway station is heavily used by buses and cars. Therefore, it is impossible to rebuild the tower physically. Luckily we nowadays have the technology to create an illusion of such a building. The idea is to build a virtual Christoffeltower by using augmented reality on a smartphone (see figure \ref{fig:christoffeltower}).\\\\
+\begin{figure}[H]
+  \begin{center}
+		\includegraphics[width=1.0\textwidth]{img/christoffeltower.png}
+  \end{center}
+	\caption{Christoffeltower with AR}\label{fig:christoffeltower}
+\end{figure}
 One problem of this idea is that we don't know what kind of device a possible viewer will use. Therefore it is not possible to use calibration data of a predefined camera type. It must be possible to calibrate the camera just in place. This is what this project tries to address. The goal is to calibrate a camera based on a pre-generated point cloud.\\\\
 The following sections will explain why camera calibration is necessary and what camera calibration means.
 
@@ -66,17 +72,16 @@ We should write a program that takes a 3D point cloud and its corresponding 2D p
 
 \section{Timetable}
 
-The project was planned to end at the beginning of June because the exams are held in mid-June. The evaluation process started well, and it was finished in the given time. Unfortunately, the problems started with the implementation. The first algorithms worked purely because non-linear optimization was used. Debugging and searching new approaches took more time than expected. Additional because of changing the employer it was not possible to invest the planned time into the project during April, May and June. Fortunately, the latest date for submitting this project is mid-August therefore it was possible to extend the time frame. The planned timetable is shown in figure \ref{fig:timetable_should} and the final timetable is show in figure \ref{fig:timetable_is}.
+The project was planned to end on beginning of June because the exams are held in mid-June. The evaluation started well and finished in the given time. Unfortunately, the problems started with the implementation. The first algorithms worked purely because only non-linear optimization was used. Debugging and searching new approaches took more time than expected. Additional because of changing the employer it was not possible to invest the planned time for the project during April, May and June. Fortunately, the latest date for submitting this project is mid-August therefore it was possible to extend the time frame. The planned timeline is shown in figure \ref{fig:timeline_should} and the final timeline is show in figure \ref{fig:timeline_is}.
 \begin{figure}[H]
-	\includegraphics[width=1.0\textwidth]{img/timetable_should.png}
-	\caption{Planned timetable}\label{fig:timetable_should}
+	\includegraphics[width=1.0\textwidth]{img/timeline_should.png}
+	\caption{Planned timeline}\label{fig:timeline_should}
 \end{figure}
 
 \begin{figure}[H]
-	\includegraphics[width=1.0\textwidth]{img/timetable_is.png}
-	\caption{Final timetable}\label{fig:timetable_is}
+	\includegraphics[width=1.0\textwidth]{img/timeline_is.png}
+	\caption{Final timeline}\label{fig:timeline_is}
 \end{figure}
-
 
 
 \chapter{Evaluation}
@@ -85,7 +90,7 @@ As a first task we study some existing solutions to similar problems and we anal
 
 \section{Existing methods}
 
-There are several papers about camera calibration available. However, most of them are improvements or additions to the Checkerboard calibration \ref{sec:checkerboard}.
+There are several papers about camera calibration available. However, most of them are improvements or additions to the checkerboard calibration \ref{sec:checkerboard}.
 
 \subsection{Checkerboard}\label{sec:checkerboard}
 The most famous variant for camera calibration is the checkerboard approach \cite{Zhang}. For this approach one must take photos of a checkerboard. The algorithm then performs the following tasks:
@@ -93,7 +98,7 @@ The most famous variant for camera calibration is the checkerboard approach \cit
   \item Search the checkerboard inner corners
   \item Find an approximation of the intrinsic matrix
   \item Find an approximation of the extrinsic matrix
-  \item Solve the non linear camera model by minimizing the re-projection error with Levenberg-Marquardt
+  \item Solve the non-linear camera model by minimizing the re-projection error with Levenberg-Marquardt
 \end{enumerate}
 
 \subsection{Self-calibration with planar scene}
@@ -103,19 +108,19 @@ In comparison to the checkerboard calibration this approach doesn't need a check
 Because the checkerboard calibration is widely used and well documented, some ideas were taken from this approach. We don't have a checkerboard available but a 3D cloud instead. We will see that because we have a 3D cloud available we only need one image to estimate the camera parameters. Checkerboard calibration needs at least two images \cite{Zhang} but more will improve the result. The self calibrating approach is interesting but it wouldn't profit from the 3D point cloud. Further it would requires a planar image. In our case we don't have such an image available.
 
 \section{Tools}
-To do experiments and to implement a proof of concept, we need the right tool available. Here we inspect Matlab and Python both are widely used in computer vision today.
+To do experiments and to implement a proof of concept, we need the right tool available. Here we inspect Matlab and Python. Both are widely used in computer vision today.
 
 \subsection{Matlab}
 Matlab has a powerful imaging toolbox. Besides that Matlab also has a lot of powerful tools to plot images, graphs etc. Matlab is a proprietary product of Mathworks. Matlab is available for all major operating systems. It provides all we need out of the box with the ``Image Processing Toolbox''.
 
 \subsection{Python}
-Python does not provide that many powerful tools out of the box as Matlab does. However, through additional libraries it can become as powerful as Matlab. Python is developed as open source software and is available for all major operating systems.\\
-We require the following additional libraries to have similar functionality to Matlab:
+Python does not provide that many powerful tools out of the box as Matlab. However, through additional libraries it can become as powerful as Matlab. Python is developed as open source software and is available for all major operating systems.\\
+We require the following additional libraries to have similar functionality as Matlab:
 \begin{itemize}
   \item Scipy
-    \subitem Adds some missing mathematically functions like Levenberg-Marquardt or linear least squares
+    \subitem Adds mathematically functions like Levenberg-Marquardt or linear least squares
   \item Numpy
-    \subitem Is a powerful framework for handling matrices
+		\subitem Is a powerful framework for handling matrices (used by Scipy and OpenCV)
   \item OpenCV
 		\subitem Adds image processing and computer vision (CV) features
   \item Matplotlib
@@ -123,11 +128,11 @@ We require the following additional libraries to have similar functionality to M
 \end{itemize}
 
 \subsection{Decision}
-Because Python has a fast growing community and because we can use OpenCV as CV-toolkit, we decided to use Python as programing language/toolbox. It should be easy to port code written in Python/OpenCV to C++/OpenCV if required.
+Because Python has a fast growing community and because we can use OpenCV as CV-toolkit, we use Python as programing language/toolbox. It should be easy to port code written in Python/OpenCV to C++/OpenCV if required.
 
 \chapter{Implementation}\label{chap:implementation}
 
-In this chapter we describe the different steps required to calibrate a camera. We start with basics about optimization, will understand the camera model, learn how to calibrate a camera and finally see a resulting algorithm.
+In this chapter we see the different steps required to calibrate a camera. We start with basics about optimization, will understand the camera model, learn how to calibrate a camera and finally see a resulting algorithm.
 
 \section{Optimization}
 What we will see later is that we require an optimization algorithm to fit a model to an actual camera. We will use two different optimization algorithms. One is linear least squares which is an optimization algorithm that minimises linear mean squares problems. The second algorithm we will use is Levenberg-Marquardt to solve nonlinear least squares problems. This section describes the differences between these algorithms and which algorithm we should use for which problem.
@@ -154,7 +159,7 @@ Where:
   x	  	&: \text{unkonwns}\\
   b		  &: \text{known output values}
 \end{align*}
-We try to find the variable x. This is an easy doable task by inverting Matrix A and multiply the inverse with B. This will give us the unknown matrix X ($x_1,x_2$). We assume here that the matrix is nonsingular. Let us assume we have more equations than unknowns which is a common use case in reality. We will then have something like in equation \ref{eq:least_squares_example2}. This example isn't solvable by inverting matrix A. Instead we need a new algorithm called linear least squares \ref{eq:least_squares_algorithm}. This algorithm tries to minimize the squared error of the equation. For more details on why this algorithm works see \cite{Hayes}. Libraries that implement these algorithms can often do a pseudo-inverse instead of a simple inverse in case that a matrix is singular. Such an implementation is e.g. pinv of Numpy \cite{pinv}.
+We try to find the variable x. This is an easy doable task by inverting Matrix A and multiply the inverse with B. This will give us the unknown matrix X ($x_1,x_2$). We assume here that matrix A is nonsingular. Let us assume we have more equations than unknowns which is a common use case in reality. We will then have something like in equation \ref{eq:least_squares_example2}. This example isn't solvable by inverting matrix A. Instead we need a new algorithm called linear least squares \ref{eq:least_squares_algorithm}. This algorithm tries to minimize the squared error of the equation. For more details on why this algorithm works see \cite{Hayes}. Libraries that implement these algorithms can often do a pseudo-inverse instead of a simple inverse in case that a matrix is singular. Such an implementation is e.g. pinv of Numpy \cite{pinv}.
 
 \begin{equation}\label{eq:least_squares_example2}
   A*X=B=\begin{pmatrix}
@@ -179,11 +184,11 @@ We try to find the variable x. This is an easy doable task by inverting Matrix 
   X=(A^H*A)^{-1}*A^H*B 
 \end{equation}
 
-An advantage of using a linear solver for the least squares problem is that it will find the global minimum. It is also computationally faster for problems with low to medium amount of unknowns (1-100). However, as the name states it can only solve problems where the unknowns are linear.
+An advantage of using a linear solver for the least squares problem is that it will find the global minimum. It is also computationally faster for problems with low to medium amount of unknowns (1-100). However, as the name states it can only solve problems where the unknowns are linear dependent.
 
 \subsection{Gradient-Descent}
 
-Non-linear problems are much harder to solve. Algorithms for this kind of problem can't guarantee to find the global optimum if the problems are non-convex. One of the most common non-linear solvers is Gradient-Descent. Gradient-Descent is an iterative algorithm which calculates the gradient at point x and then takes a step in the opposite direction of the gradient for minimizing a problem (see Figure \ref{fig:gradient_descent}). Gradient-Descent works iteratively and uses equation \ref{eq:gradient_descent} to take a step in direction of the minimum.
+Non-linear problems are much harder to solve. Algorithms for this kind of problem can't guarantee to find the global optimum if the problems are non-convex. One of the most common non-linear solver is Gradient-Descent. Gradient-Descent is an iterative algorithm which calculates the gradient at point x and then takes a step in the opposite direction of the gradient for minimizing a problem (see Figure \ref{fig:gradient_descent}). Gradient-Descent works iteratively and uses equation \ref{eq:gradient_descent} to take a step in direction of the minimum.
 
 \begin{figure}[H]
   \begin{center}
@@ -197,12 +202,12 @@ Non-linear problems are much harder to solve. Algorithms for this kind of proble
 \end{equation}
 Where:
 \begin{align*}
-  X		      &: \text{parameters}\\
+  X		      &: \text{variables}\\
   \Delta f  &: \text{derivation of function f}\\
   \theta    &: \text{step size}
 \end{align*}
 
-Gradient-Decent is easy to implement and works well on most non-linear optimization problems.
+Gradient-Decent is easy to implement and works well on most non-linear optimization problems. Gradient-Descent can be slow if the gradient is vanishing.
 
 \subsection{Gauss-Newton}
 The Newton optimization algorithm is an algorithm that assumes a problem is approximately quadratic near the optimal solution. It fits a polynomial at the current location, derives it and jumps to the position where the derivation of this polynomial is zero (Figure \ref{fig:newton}a). If the problem is quadratic near the optimal solution, this algorithm converges faster than gradient descent.
@@ -229,10 +234,10 @@ Where:
   e  	  &: \text{error y-ŷ}
 \end{align*}
 
-Newton/Gauss-Newton can not guarantee to converge if the problem is not quadratic near the optimal solution as shown in Figure \ref{fig:newton}b. In this image the problem is nearly linear near the optimal solution, therefore it won't find the optimal solution.
+Newton/Gauss-Newton can not guarantee to converge if the problem is not quadratic near the optimal solution as shown in Figure \ref{fig:newton}b. In this image the problem is nearly linear near the optimum therefore it can't find the solution.
 
 \subsection{Levenberg-Marquardt}
-For this project we chose Levenberg-Marquardt as non-linear optimization algorithm. Zhang proposed this who first described the checkerboard calibration \cite{Zhang}. Levenberg-Marquardt uses Gauss-Newton which makes it fast to converge but can move to Gradient-Descent if Gauss-Newton isn't converging. This makes Levenberg-Marquardt more robust than Gauss-Newton but makes it still faster than Gradient-Descent. Equation \ref{eq:levenberg_marquardt} shows the update equation for the parameters. \mu\ is the tuning parameter which will increase the influence of Gradient-Descent. If \mu\ is tiny (close to 0) then Levenberg-Marquardt only uses Gauss-Newton. If \mu is huge, then it uses only Gradient-Descent for optimization. The implementation of Levenberg-Marquardt can update \mu during optimization. If the error increases from step to step, the algorithm decreases the influence of Gauss-Newton and increases the influence of Gradient-Descent. It will therefore converge even if the problem is not quadratic near the optimal solution.
+For this project we choose Levenberg-Marquardt as non-linear optimization algorithm. Zhang proposed this who first described the checkerboard calibration \cite{Zhang}. Levenberg-Marquardt uses Gauss-Newton which makes it fast to converge but can move to Gradient-Descent if Gauss-Newton isn't converging. This makes Levenberg-Marquardt more robust than Gauss-Newton but makes it still faster than Gradient-Descent. Equation \ref{eq:levenberg_marquardt} shows the update equation for the parameters. \mu\ is the tuning parameter which will increase the influence of Gradient-Descent. If \mu\ is tiny (close to 0) then Levenberg-Marquardt only uses Gauss-Newton. If \mu\ is huge, then it uses only Gradient-Descent for optimization. The implementation of Levenberg-Marquardt can update \mu\ during optimization. If the error increases from step to step, the algorithm decreases the influence of Gauss-Newton and increases the influence of Gradient-Descent. It will therefore converge even if the problem is not quadratic near the optimal solution.
 
 \begin{equation}\label{eq:levenberg_marquardt}
   X_{n+1} = X_n - (J_n^T*J_n + \mu*I)^{-1}*J_n*e_n
@@ -248,7 +253,7 @@ Where:
 \end{align*}
 
 \section{Camera model}
-The camera model expresses how any point in the three-dimensional space is projected onto a two-dimensional image. As a first approximation it assumes that all rays are going trough one point. This is called the pinhole camera model \ref{fig:projection}a. Given this assumption we can describe the projection of a 3D point onto a 2D image as shown in equation \ref{eq:cm}. We calculate the pixel location $x,y$ on the image by normalizing with $s$ as show in equation \ref{eq:cm_normalized}.
+The camera model expresses how any point in the three-dimensional space is projected onto a two-dimensional image. As a first approximation it assumes that all rays are going trough one point. This is called the pinhole camera model \ref{fig:projection}a. Given this assumption we can describe the projection of a 3D point onto a 2D image as shown in equation \ref{eq:cm}. We calculate the pixel location $x,y$ on the image by normalizing with $s$ as show in equation \ref{eq:cm_normalized} \cite{rvc}.
 \begin{equation}\label{eq:cm}
   \begin{pmatrix}
 		f_x & \gamma & c_x \\
@@ -294,7 +299,7 @@ Where:
   r_{ij}	&: \text{part of the rotation matrix}
 \end{align*}
 
-We can describe the intuition as follows. A Point (X,Y,Z) is projected onto an image sensor (u/s,v/s) by the multiplication of the intrinsic times the extrinsic matrix. The extrinsic matrix describes where the pinhole of the camera is located in the three dimensional space. The the intrinsic camera matrix describes how the camera is constructed. For example, in figure \ref{fig:projection}b we translate and rotate a point $p_i$ with the extrinsic matrix so we can describe its coordinates with the pinhole as origin. Further we transform the point with the intrinsic camera matrix onto the image sensor.\\
+We can describe the intuition as follows. A Point (X,Y,Z) is projected onto an image sensor (u/s,v/s) by the multiplication of the intrinsic times the extrinsic matrix. The extrinsic matrix describes where the pinhole of the camera is located in the three dimensional space. The intrinsic camera matrix describes how the camera is constructed. For example, in figure \ref{fig:projection}b we translate and rotate a point $p_i$ with the extrinsic matrix so we can describe its coordinates with the pinhole as origin. Further we transform the point with the intrinsic camera matrix onto the image sensor.\\
 \em
 Note:\\
 In chapter \ref{sec:cam_calib} we said we also need to know the pixel size. This is true but will not appear directly in the camera model. The parameters fx and fy who are sizes in meters are expressed in pixels. They therefore include the information about pixel size.
@@ -307,7 +312,7 @@ In chapter \ref{sec:cam_calib} we said we also need to know the pixel size. This
 	\caption{Image projection}\label{fig:projection}
 \end{figure}
 
-When calibrating a camera we are interested in the intrinsic matrix because it will be constant over time for a specific camera. Additional to the intrinsic matrix a real world lense will have distortion. A lense will not map a point perfectly onto an image plane. It will misplace an image point non-linear the further away a pixel is from the principal point (cx,cy). We can see how distortion affects an image point in equation \ref{eq:dist} and equation \ref{eq:pdist}.
+When calibrating a camera we are interested in the intrinsic matrix because it will be constant over time for a specific camera. Additional to the intrinsic matrix a real world lense will have distortion. A lense will not map a point perfectly onto an image plane \cite{rvc}. It will misplace an image point non-linear the further away a pixel is from the principal point (cx,cy). We can see how distortion affects an image point in equation \ref{eq:dist} and equation \ref{eq:pdist}.
 
 \begin{equation}\label{eq:dist}
 	\begin{pmatrix}\gamma_{x} \\
@@ -343,7 +348,7 @@ By doing camera calibration we try to find a model which maps the 3D points onto
 This section describes how we use the camera model to calibrate a camera. This means how we fit a model to the real camera.
 
 \subsection{Estimate the projection matrix}\label{sec:est_proj}
-The camera model that includes distortion is a non-linear model. The reason for that is that several parameters are also available in squared form if we merge the distortion model with the extrinsic and intrinsic model. Therefore, we need to do non-linear optimization to find the real camera model. However, non-linear optimization can only find local optima. Therefore we require a good initial guess of where we start the optimization. We assume the distortion is not huge. We therefore ignore distortion in a first step. Our task is to find the $p_{ij}$ values in equation \ref{eq:projection}. The projection matrix P (containing $p_{nn}$) is a multiplication of the intrinsic times the extrinsic matrix.\\
+The camera model that includes distortion is a non-linear model. The reason for that is that several parameters are also available in squared form if we merge the distortion model with the extrinsic and intrinsic model. Therefore, we need to do non-linear optimization to find the real camera model. However, non-linear optimization can only find local optima. Therefore we require a good initial guess of where we start the optimization. We assume the distortion is small. We therefore ignore distortion in a first step. Our task is to find the $p_{ij}$ values in equation \ref{eq:projection}. The projection matrix P (containing $p_{nn}$) is a multiplication of the intrinsic times the extrinsic matrix.\\
 \em
 Note:\\
 The assumption that distortion is small holds for regular lenses but not for fisheye lenses. We are focusing on regular ones for this project.
@@ -373,7 +378,7 @@ Where:
 	u,v,s			&: \text{2D Point}\\
 \end{align*}
 
-We can rewrite equation \ref{eq:projection} as shown in equation \ref{eq:projection_flat}. We don't know u and v directly. We only have the pixel position which is $x=u/s, y=v/s, 1$. There is no way to estimate s. We know that s equals to the third row of equation \ref{eq:projection_flat}. If we multiply x and y by the third row, the equation will still hold (equation \ref{eq:projection_flat_s}). As a side effect we can remove the third row because the left and right side are equal which always holds. We finally have two equation per image point. Another trick we use is to set $p_{34}$ to 1. This makes the Z position of the camera the norm for the X and Y position (proof by solving intrinsic*extrinsic matrix). Because of this change the trivial solution where every unknown is zero disappears. We can solve the final equation \ref{eq:projection_flat_red} for all unknowns $p_{ij}$ with linear least square.
+We can rewrite equation \ref{eq:projection} as shown in equation \ref{eq:projection_flat}. We don't know u and v directly. We only have the pixel position which is $x=u/s, y=v/s, 1$. There is no way to estimate s. We know that s equals to the third row of equation \ref{eq:projection_flat}. If we multiply x and y by the third row, the equation will still hold (equation \ref{eq:projection_flat_s}). As a side effect we can remove the third row because the left and right side are equal which always holds. We finally have two equation per image point. Another trick we use is to set $p_{34}$ to 1. This makes the Z position of the camera the norm for the other unknowns. Because of this change the trivial solution where every unknown is zero disappears. We can solve the final equation \ref{eq:projection_flat_red} for all unknowns $p_{ij}$ with linear least square.
 
 % Make sure we can have the whole column matrix (normally a line break will follow after 10 columns)
 \setcounter{MaxMatrixCols}{15}
@@ -470,12 +475,12 @@ We miss one last step. We set $p_{34}$ to 1 to get rid of the trivial solution w
 Where:
 \begin{align*}
 	P					&: \text{projection matrix}\\
-	P'				&: \text{projection matrix found with $t_z=1$}\\
+	p_{ij}'		&: \text{projection matrix found with $t_z=1$}\\
 	f_x,f_y		&: \text{focal length}\\
 	c_x,c_y		&: \text{principal point}\\
 	r_{ij}		&: \text{Parameters of rotation matrix}\\
 	t_{x,y,z}	&: \text{location of the camera}\\
-	h					&: \text{real $tz=1/\sqrt{r_{31}^{'2}+r_{32}^{'2}+r_{33}^{'2}}$}
+	h					&: \text{scaling inverse $tz=1/\sqrt{r_{31}^{'2}+r_{32}^{'2}+r_{33}^{'2}}$}
 \end{align*}
 
 
@@ -501,7 +506,7 @@ We can decompose any rectangular matrix into an upper triangular matrix times a 
 	\end{pmatrix}
 \end{equation}
 
-This decomposition is called RQ-decomposition \cite{qr_decomposition}. Most mathematic libraries don't offer the RQ-decomposition but a QR-decomposition which are relatives. In this project we use the following algorithm \cite{rq_stack} for QR/RQ conversion:
+This decomposition is called RQ-decomposition \cite{qr_decomposition}. Most mathematic libraries don't offer the RQ-decomposition but a QR-decomposition which is a relative. In this project we use the following algorithm \cite{rq_stack} for QR/RQ conversion:
 \begin{enumerate}
 	\item Compute $A^{*}=P*A$ (Where P = equation \ref{eq:qr_p})
 	\item Compute decomposition of $A^{*T}=Q^*R^*$
@@ -522,7 +527,7 @@ There is an additional parameter $r_{12}$ which we don't use in the camera model
 \normalfont
 
 \subsection{Non-Linear estimation}\label{sec:nonlinear_est}
-Until now we ignored the non-linear distortion. We took a simple linear model and optimized it to find the intrinsic camera matrix. This matrix can be used as initial guess for optimizing the non-liner model. For the non-linear optimization we calculate the re-projection error of each point as shown in equation \ref{eq:reprojecterr}. 
+Until now we ignored the non-linear distortion. We took a simple linear model and optimized it to find the intrinsic camera matrix. This matrix can be used as initial guess for optimizing the non-linear model. For the non-linear optimization we calculate the re-projection error of each point as shown in equation \ref{eq:reprojecterr}. 
 \begin{equation}\label{eq:reprojecterr}
 	e=\sum\limits_{i=1}^n(x_{should}-x_{is})^2 +(y_{should}-y_{is})^2
 \end{equation}
@@ -533,7 +538,7 @@ Where:
 	x_{is},y_{is}						&: \text{the x and y position when applying the camera model}\\
 \end{align*}
 
-In some resource we find that it is possible to calculate a first guess for the distortion parameters with a linear model as well. In theory this is true with equation \ref{eq:distortion_lin}.  However, because the intrinsic and extrinsic camera matrix is an approximation the linear least squared solution for the distortion will be wrong. Instead, a good initial estimation of the distortion parameters is to assume all unknowns are zero. The reason why zero is a good guess is because we assumed that during linear optimization. After that we can optimize the whole camera model with Levenberg-Marquardt by minimizing the re-projection error of equation \ref{eq:reprojecterr}. We calculate the re-projection error during each iteration of Levenberg-Marquardt for every point. The Jacobian matrix is calculated with discrete values because we don't have a Jacobian of our model available. Levenberg-Marquardt will now minimize the squared sum of the re-projection error for each point.
+In some resources we find that it is possible to calculate a first guess for the distortion parameters with a linear model as well. In theory this is true with equation \ref{eq:distortion_lin}.  However, because the intrinsic and extrinsic camera matrix is an approximation the linear least squared solution for the distortion will be wrong. Instead, a good initial estimation of the distortion parameters is to assume all parameters are zero. The reason why zero is a good guess is because we assumed that during linear optimization. After that we can optimize the whole camera model with Levenberg-Marquardt by minimizing the re-projection error of equation \ref{eq:reprojecterr}. We calculate the re-projection error during each iteration of Levenberg-Marquardt for every point. The Jacobian matrix is calculated with discrete values because we don't have a Jacobian of our model available. Levenberg-Marquardt will now minimize the squared sum of all re-projection errors.
 
 \begin{equation}\label{eq:distortion_lin}
 	\begin{pmatrix}
@@ -568,10 +573,10 @@ Until now we didn't assume we have misleading data available in our dataset. In 
 The described approach so far works well if there are no outliers in the dataset. This is true for synthetic data but not for real world data. Therefore an algorithm is needed to detect outliers. For this project an algorithm similar to RANSAC \cite{ransac} is used. Instead of calculating the projection matrix \ref{eq:projection} once, the calculation is done iteratively with a reduced and randomized dataset. The estimation that fits the data best will be used for further calculation. Outliers that have a huge re-projection error will be removed from the dataset. The algorithm used can be described as follows:
 \begin{enumerate}
 	\item Get a random subset of 10 data points
-	\item Calculate the projection matrix as shown in equation \ref{eq:projection_flat}
-	\item Estimate the 2D projection based on the estimated camera model
+	\item Calculate the projection matrix as described in section \ref{sec:est_proj}
+	\item Calculate the 2D projection based on the estimated camera model
 	\item Calculate the distance of each point to where it should be
-	\item Count the points as hit where the point is within a radius of 3px
+	\item Count the point as hit if it is within a radius of 3 pixels
 	\item Repeat steps 1-5 n times, take the model with the most hits
 	\item Remove all points that do not count as hit from the dataset
 \end{enumerate}
@@ -579,45 +584,55 @@ The described approach so far works well if there are no outliers in the dataset
 In this project n was chosen to be 2000. Increasing this value will make the algorithm more robust but also slower.
 
 \subsection{Final algorithm}
-Now that we have everything in lace we can put together the final algorithm as follows:
+Now that we have everything in place we can put together the final algorithm as follows:
 \begin{enumerate}
-	\item Take a randomized reduced set of data from the dataset
+	\item Take a randomized reduced set of data from the dataset \ref{sec:outliers}
 	\item Calculate the projection matrix with linear least squares \ref{sec:est_proj}
 	\item Calculate the projection of each point
 	\item Detect outliers \ref{sec:outliers}
 	\item Repeat steps 1-4 n times
 	\item Do the matrix decomposition \ref{sec:matrix_dec} to find the intrinsic matrix
-	\item Do non-linear estimation \ref{sec:nonlinear_est} to optimize the whole model with distortion
+	\item Do non-linear estimation \ref{sec:nonlinear_est} to optimize the camera model with distortion
 \end{enumerate}
 
 The final output will be the intrinsic matrix and the five distortion parameters $k_i$ + $p_i$. As a side effect we also get the extrinsic camera matrix.
 
 \section{Point cloud}
 So far we ignored how we find 3D and 2D points for estimating the camera model. This step is not part of this project, however it is needed to generate a real world example. This section gives a small overview on how a 3D point cloud can be generated.\\
-A point cloud is a collection of points within a 3-dimensional space. We know the position (x,y,z) of each point and its unique descriptor. The descriptor must be translation and rotation invariant. The cloud can be stored in a file or database for future use. We chose ORB2 monocular SLAM \cite{orbslam2} to generate this cloud because it is open source, good documented and well established. Monocular SLAM is chosen because its handling is easier than with other systems (e.g. stereo camera). ORB2 Slam performs simplified the following steps:
+A point cloud is a collection of points within a 3-dimensional space. We know the position (x,y,z) of each point and its unique descriptor. The descriptor must be translation and rotation invariant. The cloud can be stored in a file or database for further use. We chose ORB2 monocular SLAM \cite{orbslam2} to generate this cloud because it is open source, good documented and well established. Monocular SLAM is chosen because its handling is easier than with other systems (e.g. stereo camera). ORB2 Slam performs simplified the following steps:
 \begin{enumerate}
-\item Search distinctive points on the image e.g. corners
-\item Calculate an ORB descriptor around all distinctive points
-\item Find similar descriptors on the next image
-\item Calculate the rotations and translation between the two images
-\item Calculate the position of the camera
-\item Calculate the position of the points
+	\item Search distinctive points on the image e.g. corners
+	\item Calculate an ORB descriptor around all distinctive points
+	\item Find similar descriptors on the next image
+	\item Calculate the rotations and translation between the two images
+	\item Calculate the position of the camera
+	\item Calculate the position of the points
 \end{enumerate}
 We store the position and the ORB descriptor of each point in a file to make the point cloud persistent.
-In theory, our approach needs 6 points to solve equation \ref{eq:projection} with 11 unknowns. To solve equation \ref{eq:dist} another 5 unknowns are needed. In theory, we would need 9 points in total. In practice, more points are required to detect outliers and to reduce the influence of noise. Trough trial and error an estimate of around 20 points was found to be well suited to solve our problem. More points will of course work as well and will reduce the influence of noise.\\
-This projects goal wasn't to generate a point cloud therefore we don't explain the algorithm and steps in more detail here. In theory any type of point cloud could be used as long as the 3D points can be matched against 2D points.
+This projects goal wasn't to generate a point cloud therefore we don't explain the algorithm and steps in more detail here. In theory any type of point cloud could be used as long as the 3D points can be matched against 2D points. The next section will describe how we find the corresponding 3D points on a 2D image.
+
+\section{Point Matching}
+To do camera calibration we need a set of 2D and 3D points. We need to know the position of a 2D point in an image and in the 3D world. The steps to find a set of 2D/3D points can be described as follows:
+\begin{enumerate}
+	\item Search distinctive points on the image e.g. corners
+	\item Calculate an ORB descriptor around all distinctive points
+	\item Match the ORB descriptors of the image with the ORB descriptors from the 3D point cloud using hamming distance
+	\item Use the 2D/3D dataset for doing camera calibration
+\end{enumerate}
+
+This algorithm was used to implement the real world example.
 
 \chapter{Result}
 
-In this document we showed a technique on how camera calibration can be done with a pre-generated point cloud. It works well when the 3D cloud is reliable. The following sections show two tools that came out of this project as well as a modified version of ORB Slam 2.\\
+In this document we saw a technique on how camera calibration can be done with a pre-generated point cloud. It works well when the 3D cloud is reliable. The following sections show two tools that came out of this project as well as a modified version of ORB Slam 2.\\
 
-The software written during this project is available on Github under the following link \url{https://github.com/eichenberger/camera-calibration}. To setup everything the following commands need to be executed:
+The software written during this project is available on Github under the following link \url{https://github.com/eichenberger/camera-calibration}. To setup everything the following commands need to be executed (Linux):
 \small
 \lstset{language=bash}
 \begin{lstlisting}
 git clone git@github.com:eichenberger/camera-calibration.git
 cd camera-calibration
-python3 setup.py
+python3 setup.py install
 
 # For proof of concept
 cd poc
@@ -633,12 +648,11 @@ python3 camera-calibration.py test2.map keyframes/keyframe_2.png
 \end{lstlisting}
 \normalsize
 
-
 \section{Proof of concept}
 
-To test the algorithm with synthetic data a proof of concept has been written. With the proof of concept we are able to simulate noise and outliers to see how the algorithm performs. Because we know the exact camera parameters we can calculate the distance from the estimated values to the real values. This distance is calculated and printed on the console.\\
+To test the algorithm with synthetic data a proof of concept has been written. With the proof of concept we are able to simulate noise and outliers to see how the algorithm performs. Because we know the exact camera parameters we can calculate the distance from the estimated values to the real values. This distance is calculated and printed on the console. It serves as an indicator how well the estimation works.\\
 
-From the estimated camera model we calculate a projection of the model. The image with the known model and the image with the estimated model will be plotted such an image is shown in figure \ref{fig:diff_img}. To make differences visible white noise was added before doing the estimation. Without noise the estimated model would match the real model without differences.
+From the estimated camera model we calculate a projection of the model. The image with the known model and the image with the estimated model will be plotted. Such an image is shown in figure \ref{fig:diff_img}. To make differences visible in the example, white noise was added before doing the estimation. Without noise the estimated model would match the real model without any visible difference.
 \begin{figure}[H]
   \begin{center}
 		\includegraphics[width=1.0\textwidth]{img/diff_img.png}
@@ -655,7 +669,8 @@ Another application was written to show that the proof of concept would also wor
 	\item Generate pairs of 3D and 2D points based on matches from the previous step
 	\item Start camera calibration as described in section \ref{sec:cam_calib}
 \end{enumerate}
-To generate the point cloud we modified the ORB2\_SLAM open source implementation \cite{orbslam2_impl}. The modification allows us to export 3D points and their corresponding descriptor. It would be also possible to use SLProject to generate the point cloud. Initial tests showed promising results.\\
+To generate the point cloud we modified the ORB2\_SLAM open source implementation \cite{orbslam2_impl}. The modification allows us to export 3D points and their corresponding descriptor. It would also be possible to use SLProject to generate the point cloud.\\
+
 An example output of camera-calibration.py which is part of this project is shown here:
 \tiny
 \begin{lstlisting}
@@ -679,7 +694,7 @@ This gives us an uncertainty per parameter of:
 diff:   1.05%   0.94%   2.72%   0.07%   12.90%  17.30%  12.32%  32.33% 100%
 \end{lstlisting}
 \normalsize
-Besides the small distortion parameters the calibration works well. The uncertainties come together because of noise and inaccuracy in the point cloud. However, the camera model would work well for augmented reality. An example of an undistorted image with the estimated parameters is shown in figure \ref{fig:undistorted}. Please note that the point clouds ``test.map'' and ``test2.map'' aren't accurate, therefore it can sometimes happen that the non-linear optimization converges into an invalid optima. Unfortunately there is no detection for this in the current implementation.
+Besides the small distortion parameters the calibration works well. The uncertainties are there because of noise and inaccuracy in the point cloud. However, the camera model would work well for augmented reality. An example of an undistorted image with the estimated parameters is shown in figure \ref{fig:undistorted}. Please note that the point clouds available in the repository ``test.map'' and ``test2.map'' aren't accurate, therefore it can sometimes happen that the non-linear optimization converges into an invalid optima. Unfortunately there is no detection for this in the current implementation.
 
 \begin{figure}[H]
   \begin{center}
@@ -689,15 +704,14 @@ Besides the small distortion parameters the calibration works well. The uncertai
 \end{figure}
 
 \section{ORB Slam 2}
-For creating the 3D point we can use a modified version of ORB\_SLAM2. This version allows controlling and accessing ORB slam from Python. The modified version can be found in this repo \url{https://github.com/eichenberger/ORB\_SLAM2} on the branch se. Please note that the state of this project is unstable. It unfortunately needs some manual work to get a final python library.
+For creating the 3D point we can use a modified version of ORB\_SLAM2. This version allows controlling and accessing ORB slam from Python. The modified version can be found in this repo \url{https://github.com/eichenberger/ORB\_SLAM2} under the branch se. Please note that the state of this project is unstable. It unfortunately needs some manual work to get a final python library. The modification won't be documented here further because it wasn't officially part of this project.
 
 \section{Improvements}\label{sec:improvements}
-The algorithm described in this document only shows the calibration process on a single image. This works well but isn't very robust. OpenCV in comparison uses several images for doing checkerboard calibration. With this approach it can detect when the non linear optimization goes in wrong directions. OpenCV also does bundle adjustment over several images which reduces the influence of noise and increases the robustness. This methods could be used to improve our algorithm as well and to make it more robust against noise, outliers and converging into wrong solutions.\\
+The algorithm described in this document only shows the calibration process on a single image. This works well but isn't very robust. OpenCV in comparison uses several images for doing checkerboard calibration. With this approach it can detect when the non-linear optimization goes in wrong directions. OpenCV also does bundle adjustment over several images which reduces the influence of noise and increases the robustness. This methods could be used to improve our algorithm as well and to make it more robust against noise, outliers and converging into wrong solutions.\\
 \em
 Note:\\
 If we try to add boundaries to the optimization algorithm by punishing values diverging from the initial guess we introduce new local optima. It can therefore happen that in this case Levenberg-Marquardt converges into a wrong optimum.
 \normalfont
-
 
 \listoffigures
  
@@ -753,6 +767,11 @@ If we try to add boundaries to the optimization algorithm by punishing values di
   Zhengyou Zhang,
   \textit{A Flexible New Technique for Camera Calibration}
   MSR-TR-98-71
+
+	\bibitem{rvc}
+	Peter Corke,
+	\textit{Robotics, Vision and Control}
+	Springer, ISBN 978-3-319-54413-7, chapter 11+12, page 319+
 
 	\bibitem{qr_decomposition}
 	William H. Press,
