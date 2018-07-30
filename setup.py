@@ -11,6 +11,6 @@ setup(
     install_requires=[
         'numpy >= 1.14.1',
         'scipy >= 0.19.1',
-        'opencv >= 3.2.0'
+        'opencv-python >= 3.2.0'
     ]
 )
